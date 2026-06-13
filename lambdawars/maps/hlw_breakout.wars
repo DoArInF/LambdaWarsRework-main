@@ -1,0 +1,86 @@
+"WarsMap"
+{
+	"cover"
+	{
+		"spot"
+		{
+			"position"		"425.06 -4194.88 72.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"424.03 -3947.21 72.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"-1254.54 -3074.21 144.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"128.56 -3115.25 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"264.04 -3093.83 72.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"-1194.84 -3070.97 144.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"11.42 -3000.47 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"61.45 -3054.62 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"1319.68 -805.66 144.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"1380.96 -801.95 144.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"119.01 -603.80 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"70.77 -541.53 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"-103.37 -464.34 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"15.27 -479.74 64.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"-322.19 62.96 72.03"
+			"flags"		"0"
+		}
+		"spot"
+		{
+			"position"		"-327.68 333.63 74.50"
+			"flags"		"0"
+		}
+	}
+}

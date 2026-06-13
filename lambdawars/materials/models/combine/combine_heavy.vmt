@@ -1,0 +1,20 @@
+vertexlitgeneric
+{
+$basetexture "models\combine\combine_heavy"
+$bumpmap "models\combine\combine_heavy_normal"
+
+
+		"$teamcolormap" "models\combine\combine_heavy_color"	
+        "Proxies"
+        {
+                "IsNPC"
+                {
+                        "scale" "4.0"
+                        "resultvar" "$selfillumtint"
+                }
+       
+                "TeamColor"
+                {
+                }
+        }
+}

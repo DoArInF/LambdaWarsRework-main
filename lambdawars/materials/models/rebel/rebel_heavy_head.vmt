@@ -1,0 +1,22 @@
+vertexlitgeneric
+{
+$basetexture "models\rebel\rebel_heavy_head"
+
+$bumpmap "models\rebel\rebel_heavy_head_normal"
+
+
+		"$teamcolormap" "models\rebel\rebel_heavy_head_color"	
+        "Proxies"
+        {
+                "IsNPC"
+                {
+                        "scale" "4.0"
+                        "resultvar" "$selfillumtint"
+                }
+       
+                "TeamColor"
+                {
+                }
+        }
+
+}
