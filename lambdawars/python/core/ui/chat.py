@@ -32,17 +32,31 @@ class CefChatPanel(CefPanel):
         
     def StartClientChat(self, mode, *args, **kwargs):
         self.Invoke("startChat", [mode, vgui_input().IsKeyDown(KEY_ENTER), gameui.GetCurrentKeyboardLangId()])
+
+    def SplitPlayerChatMessage(self, playerindex, msg):
+        pr = PlayerResource()
+        playername = pr.GetPlayerName(playerindex) if pr else ''
+        if not playername:
+            playername, _, msg = msg.partition(':')
+            return playername, msg.lstrip()
+
+        start = msg.find(playername)
+        if start == -1:
+            return playername, msg
+
+        end = start + len(playername)
+        delimiter = msg.find(':', end)
+        msgstart = delimiter + 1 if delimiter != -1 else end
+        return playername, msg[msgstart:].lstrip()
         
     def OnPrintChat(self, playerindex, filter, msg, *args, **kwargs):
         if playerindex == 0:
             self.Invoke("printChatNotification", [msg])
         else:
-            say = msg.partition(':')
             owner = PlayerResource().GetOwnerNumber(playerindex) if PlayerResource() else OWNER_LAST
             c = dbplayers[owner].color
             playercolor = 'rgb(%d, %d, %d)' % (c.r(), c.g(), c.b())
-            playername = say[0]
-            msg = say[2]
+            playername, msg = self.SplitPlayerChatMessage(playerindex, msg)
         
             self.Invoke("printChat", [playername, playercolor, msg])
     

@@ -225,8 +225,7 @@ class Overrun(WarsBaseGameRules):
 
             if self.modificator_camera:
                 if not self.snapcameranexttime > gpGlobals.curtime:
-                    for i in range(1, gpGlobals.maxClients+1):
-                        player = UTIL_PlayerByIndex(i)
+                    for player in self.GetRealPlayers():
                         if player is None or not player.IsConnected():
                             continue     
                         #player.SnapCameraTo(enemy.GetAbsOrigin() + Vector(0,0,1))
@@ -235,8 +234,7 @@ class Overrun(WarsBaseGameRules):
                     self.snapcameranexttime = gpGlobals.curtime + random.randint(10, 20)
             if self.modificator_random:
                 if not self.checkplayersunit > gpGlobals.curtime:
-                    for i in range(1, gpGlobals.maxClients+1):
-                        player = UTIL_PlayerByIndex(i)
+                    for player in self.GetRealPlayers():
                         if player is None or not player.IsConnected():
                             continue
                         playerowner = player.GetOwnerNumber()
@@ -246,10 +244,11 @@ class Overrun(WarsBaseGameRules):
                         elif self.modificator_random == 1:
                             owner = OWNER_ENEMY
                             unitowner = player.GetOwnerNumber()
-                        if not len(unitlist[unitowner]) > 0:
+                        candidates = [unit for unit in unitlist[unitowner] if self.IsValidRandomEffectTarget(unit)]
+                        if not candidates:
                             continue
 
-                        unit = random.choice(unitlist[unitowner])
+                        unit = random.choice(candidates)
                         options = (['changeowner', 'suicide', 'requisition', 'stun', 'lowhp', 'morerequisition'], 
                                    [0.059, 0.04, 0.45, 0.25, 0.2, 0.001])
                         type = next(probchoice(options[0], options[1]))
@@ -299,8 +298,7 @@ class Overrun(WarsBaseGameRules):
                     self.waveinprogress = False
 
                     # Give income to players for surviving the wave
-                    players = self.GetRealPlayers()
-                    owners = set([p.GetOwnerNumber() for p in players])
+                    owners = self.GetActiveGamePlayerOwnerNumbers()
                     DevMsg(1, "Wave %d ended. Active owners: %s\n" % (self.wave, str(owners)))
                     income = int(self.waveincome)
                     if self.difficulty == 'easy':
@@ -380,6 +378,43 @@ class Overrun(WarsBaseGameRules):
             'build_reb_hq',
             'build_reb_hq_overrun',
         ]
+
+        random_effect_protected_unit_types = frozenset([
+            'build_comb_hq',
+            'overrun_build_comb_hq',
+            'build_reb_hq',
+            'overrun_build_reb_hq',
+        ])
+
+        def IsValidRandomEffectTarget(self, unit):
+            if not unit or not unit.IsAlive():
+                return False
+
+            unitinfo = unit.unitinfo
+            if unitinfo.name in self.random_effect_protected_unit_types:
+                return False
+            if unitinfo.cls_name in self.random_effect_protected_unit_types:
+                return False
+
+            return True
+
+        def GetActiveGamePlayerOwnerNumbers(self):
+            ownernumbers = set()
+            for data in self.gameplayers:
+                if self.IsPlayerDefeated(data):
+                    continue
+
+                ownernumber = data.get('ownernumber', None)
+                if ownernumber is None:
+                    continue
+
+                ownernumbers.add(ownernumber)
+
+            if not ownernumbers:
+                for player in self.GetRealPlayers():
+                    ownernumbers.add(player.GetOwnerNumber())
+
+            return ownernumbers
 
         def CheckDefeat(self):
             if self.manager and self.manager.usecustomconditions:
@@ -635,17 +670,19 @@ class Overrun(WarsBaseGameRules):
                 
         def BuildSpawnPointListFrame(self):
             """ Build spawn point list for this frame. """
-            players = self.GetRealPlayers()
-            if not players:
+            ownernumbers = self.GetActiveGamePlayerOwnerNumbers()
+            if not ownernumbers:
                 return []
-            owernumber = players[0].GetOwnerNumber()
             
             pointlist = None
             for pointlist in self.wavespawnpoints:
                 valid = True
                 for point in pointlist:
-                    if not self.WavePointInFOW(point, owernumber):
-                        valid = False
+                    for ownernumber in ownernumbers:
+                        if not self.WavePointInFOW(point, ownernumber):
+                            valid = False
+                            break
+                    if not valid:
                         break
                      
                 if valid:

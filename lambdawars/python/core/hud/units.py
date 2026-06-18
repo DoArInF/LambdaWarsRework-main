@@ -351,16 +351,19 @@ class BaseHudUnits(Panel):
         engine.ServerCommand('player_addunit %d' % unit.entindex())
         
     def UpdateUnits(self, units):
+        units = [unit for unit in units if unit]
+
         # Update amount of visible slots if needed
         unitcount = len(units)
-        if self.neededslots != unitcount:
-            self.neededslots = min(unitcount, self.MAXUNITSLOTS)
+        neededslots = min(unitcount, self.MAXUNITSLOTS)
+        if self.neededslots != neededslots:
+            self.neededslots = neededslots
             
             if self.neededslots > self.curmax or self.neededslots < self.curmin:
                 self.PerformLayout()
 
             for i, slot in enumerate(self.slots):
-                slot.SetVisible(i < unitcount)
+                slot.SetVisible(i < self.neededslots)
 
             self.FlushSBuffer() # Trigger Paint() in Python
             
@@ -449,14 +452,20 @@ class BaseHudGarrisonUnits(BaseHudUnits):
     def OnSelectionChanged(self, player, **kwargs):
         units = player.GetSelection()
         if not units:
+            self.building = None
+            self.UpdateUnits([])
             return
         building = units[0]
         if not hasattr(building, 'units'):
+            self.building = None
+            self.UpdateUnits([])
             return
-        self.UpdateUnits(building.units)
         self.building = building
+        self.UpdateUnits(building.units)
         
     def OnGarrisonChanged(self, building, **kwargs):
+        if building != self.building:
+            return
         self.UpdateUnits(building.units)
         
     def OnSlotLeftClick(self, slot):

@@ -364,7 +364,7 @@ class UnitBaseShared(object):
 
         if isclient:
             self.ClearSelectionCircle()
-            self.HideBars()
+            self.HideBars(force=True)
             self.HideChannelBar()
             
         # ALWAYS CHAIN BACK!
@@ -1374,10 +1374,10 @@ class UnitBaseShared(object):
             
             self.barsvisible = True
             
-        def HideBars(self):
+        def HideBars(self, force=False):
             if not self.barsvisible:
                 return
-            if self.ShouldAlwaysShowBars():
+            if not force and self.ShouldAlwaysShowBars():
                 return
             self.healthbarscreen.Shutdown()
             self.healthbarscreen = None
@@ -1430,6 +1430,16 @@ class UnitBaseShared(object):
                     return False
                     
             return True
+
+    def ShouldEmitHurtSound(self, dmginfo, cooldown=1.0):
+        if self.health <= 0 or dmginfo.GetDamage() <= 0:
+            return False
+
+        if self.nexthurtsoundtime > gpGlobals.curtime:
+            return False
+
+        self.nexthurtsoundtime = gpGlobals.curtime + cooldown
+        return True
         
     #: Access the unit info object.
     unitinfo = UnitFallBackInfo
@@ -1537,6 +1547,7 @@ class UnitBaseShared(object):
     sai_group = None
     #: Last time taken damage by an attacker
     lasttakedamage = FloatField(value=0.0)
+    nexthurtsoundtime = 0.0
     #: Cover spots created by unit.
     cover_spots = ListField(value=[], save=False)
     #: Only for the 'allowattack' ability 

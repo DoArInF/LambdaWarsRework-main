@@ -547,7 +547,7 @@ class RebelsTeleporter(BaseClass):
         if self.teleport_flash_fx:
             return
 
-        self.teleport_ring03_fx = self.ParticleProp().Create(self.teleport_flash_fx_name, PATTACH_POINT, "root")
+        self.teleport_flash_fx = self.ParticleProp().Create(self.teleport_flash_fx_name, PATTACH_POINT, "root")
         self.SetThink(self.DestroyTeleporterFlash, gpGlobals.curtime + 1.0)
 
     def DestroyTeleporterFlash(self):
@@ -555,7 +555,7 @@ class RebelsTeleporter(BaseClass):
             return
 
         self.ParticleProp().StopEmission(self.teleport_flash_fx)
-        self.teleport_base_fx = None
+        self.teleport_flash_fx = None
 
     def CreateRift(self):
         if self.teleport_rift:

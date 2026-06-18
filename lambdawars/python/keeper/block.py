@@ -143,7 +143,7 @@ class BlockBase(TileBase):
                 
             self.barsvisible = True
             
-        def HideBars(self):
+        def HideBars(self, force=False):
             if not self.blockselectionvisible:
                 return
             self.blockselectionvisible.Shutdown()

@@ -338,14 +338,15 @@ class CombineShieldGenerator(BaseClass):
                 
             super().ShowBars()
             
-        def HideBars(self):
+        def HideBars(self, force=False):
             if not self.barsvisible:
                 return
                 
-            self.energybarscreen.Shutdown()
-            self.energybarscreen = None
+            if self.energybarscreen:
+                self.energybarscreen.Shutdown()
+                self.energybarscreen = None
             
-            super().HideBars()
+            super().HideBars(force=force)
 
     maxgenrange = FloatField(value=1024.0)
     shield = GenericField(value=None, networked=True)

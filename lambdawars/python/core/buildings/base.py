@@ -1553,10 +1553,10 @@ class UnitBaseBuilding(UnitBaseBuildingShared, BaseClass):
 
             super().ShowBars()
 
-        def HideBars(self):
+        def HideBars(self, force=False):
             self.UpdateProgressBar()
 
-            super().HideBars()
+            super().HideBars(force=force)
 
     events = dict(BaseClass.events)
     events.update({

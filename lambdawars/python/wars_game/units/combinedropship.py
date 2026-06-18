@@ -636,7 +636,7 @@ class CombineDropshipInfo(UnitInfo):
     modelname = 'models/combine_dropship.mdl'
     hulltype = 'HULL_LARGE_CENTERED'
     health = 800
-    population = 5
+    population = 0
     turnspeed = 10
     maxspeed = 450
     viewdistance = 0

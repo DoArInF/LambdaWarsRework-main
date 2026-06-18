@@ -18,7 +18,7 @@ class UnitCombine(BaseClass):
             self.expresser.SpeakRawSentence('COMBINE_DIE', 0.0)
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
             self.EmitSound("unit_combine_hurt")
         return super().OnTakeDamage(dmginfo)
             
@@ -731,7 +731,7 @@ class MissionCombineInfo(CombineInfo):
 @entity('char_combine_canshootmove', networked=True, )
 class CharacterUnitCanShootMove(UnitCombine):
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
             self.EmitSound("unit_combine_hurt")
         return super().OnTakeDamage(dmginfo)
 
@@ -742,7 +742,7 @@ class CharacterUnitCanShootMove(UnitCombine):
 @entity('character_unit', networked=True, )
 class CharacterUnit(UnitCombine):
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
             self.EmitSound("unit_combine_hurt")
         return super().OnTakeDamage(dmginfo)
 

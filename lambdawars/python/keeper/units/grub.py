@@ -15,7 +15,7 @@ if isserver:
 class UnitGrub(BaseClass):
     # Don't show hp/level bars
     def ShowBars(self): pass
-    def HideBars(self): pass
+    def HideBars(self, force=False): pass
     def OnHoverPaint(self): pass
     
     def PassesDamageFilter(self, dmginfo):
@@ -78,4 +78,3 @@ class UnitGrubInfo(UnitKeeperInfo):
     hulltype = 'HULL_TINY'
     sound_death = 'ASW_Parasite.Death'
 
-    

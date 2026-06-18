@@ -86,7 +86,7 @@ class UnitRebel(UnitCitizen):
             #  PrecacheParticleSystem('wars_levelup')
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
             self.EmitSound('unit_rebel_hurt')
         return super().OnTakeDamage(dmginfo)
 @entity('unit_rebel_csm', networked=True)
@@ -422,7 +422,7 @@ class UnitRebelGrenadeUpgradeShared(UnitCitizen):
             self.PrecacheScriptSound("unit_rebel_hurt")
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
 
             self.EmitSound('unit_rebel_hurt')
         return super().OnTakeDamage(dmginfo)
@@ -872,7 +872,7 @@ class UnitCitizenBase(UnitCitizen):
                         return self.SuspendFor(self.behavior.ActionHideSpotAttack, 'Attacking enemy on order from cover/hold spot', order.target)
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
 
             self.EmitSound('unit_rebel_hurt')
         return super().OnTakeDamage(dmginfo)
@@ -1052,6 +1052,7 @@ class MedicSMG1Upgrade(AbilityUpgrade):
 
         self.UpgradeMedicInfo(RebelMedicInfo, RebelMedicSmg1Info)
         self.UpgradeMedicInfo(DestroyHQRebelMedicInfo, DestroyHQRebelMedicSmg1Info)
+        self.UpgradeMedicInfo(OverrunRebelMedicInfo, OverrunRebelMedicSmg1Info)
 
     def UpgradeMedicInfo(self, info, successor_info):
         # Ensure buildings producing this unit now produce the medic with smg1
@@ -1255,6 +1256,14 @@ class OverrunRebelMedicInfo(RebelMedicInfo):
         10: 'patrol',
         -1: 'garrison',
     }
+
+
+class OverrunRebelMedicSmg1Info(OverrunRebelMedicInfo):
+    name = 'overrun_unit_rebel_medic_smg1'
+    weapons = ['weapon_smg1']
+    displayname = '#RebMedicSmg1_Name'
+    description = '#RebMedicSmg1_Description'
+    techrequirements = []
 
 	
 class OverrunRebelTauInfo(RebelTauInfo):
@@ -1495,7 +1504,7 @@ class CharacterUnitCanShootMove(UnitCitizen):
             self.PrecacheScriptSound("unit_rebel_hurt")
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
 
             self.EmitSound('unit_rebel_hurt')
         return super().OnTakeDamage(dmginfo)

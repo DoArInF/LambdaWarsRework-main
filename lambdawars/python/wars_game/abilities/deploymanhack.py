@@ -15,6 +15,7 @@ class AbilityDeployManhack(AbilityInstant):
     population = 1
     costs = [('requisition', 5)]
     techrequirements = ['build_comb_mech_factory']
+    unitname = 'unit_manhack'
     activatesoundscript = '#deploymanhacks'
     hidden = True
     sai_hint = AbilityInstant.sai_hint | set(['sai_deploy'])
@@ -66,6 +67,7 @@ class AbilityDeployManhackOverrun(AbilityDeployManhack):
     name = 'overrun_deploymanhack'
     costs = [('kills', 1)]
     techrequirements = []
+    unitname = 'overrun_unit_manhack'
 
 class AbilityDeployManhackChar(AbilityDeployManhack):
     name = 'char_deploymanhack'

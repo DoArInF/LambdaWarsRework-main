@@ -81,6 +81,7 @@ class UnitMetroPolice(BaseClass):
             super().Precache()
             
             PrecacheUnit('unit_manhack')
+            PrecacheUnit('overrun_unit_manhack')
             PrecacheUnit('char_scanner')
             UTIL_PrecacheOther('metropolice_shield')
             self.PrecacheScriptSound("unit_metropolice_hurt")
@@ -88,12 +89,19 @@ class UnitMetroPolice(BaseClass):
         def UnitThink(self):
             super().UnitThink()
 
-            abi_deploymanhack = self.abilitiesbyname.get('deploymanhack', None)
+            abi_deploymanhack = self.GetDeployManhackAbility()
             self.SetBodygroup(self.METROPOLICE_BODYGROUP_MANHACK,
                               int(bool(abi_deploymanhack and abi_deploymanhack.CanDoAbility(None, unit=self))))
             abi_deployscanner = self.abilitiesbyname.get('deployscanner', None)
             self.SetBodygroup(self.METROPOLICE_BODYGROUP_SCANNER,
                               int(bool(abi_deployscanner and abi_deployscanner.CanDoAbility(None, unit=self))))
+
+        def GetDeployManhackAbility(self):
+            for name in self.deploymanhackabilities:
+                abi = self.abilitiesbyname.get(name, None)
+                if abi:
+                    return abi
+            return None
 
         def AddShield(self):
             if self.shield:
@@ -171,7 +179,7 @@ class UnitMetroPolice(BaseClass):
                     grenade.SetTimer( 2.5, 2.5 - grenade.FRAG_GRENADE_WARN_TIME )'''
 
     def GetRequirements(self, requirements, info, player):
-        if info.name == 'deploymanhack':
+        if info.name in ('deploymanhack', 'overrun_deploymanhack'):
             self.activemanhacks[:] = list(filter(bool, self.activemanhacks))
             if self.activemanhacks:
                 requirements.add('maxoneactive')
@@ -182,9 +190,10 @@ class UnitMetroPolice(BaseClass):
                 requirements.add('maxoneactive')
 
     def ReleaseManhacks(self):
+        self.manhacks = list(filter(bool, getattr(self, 'manhacks', [])))
         for manhack in self.manhacks:
             # Make us physical
-            manhack.RemoveSpawnFlags(manhack.SF_MANHACK_CARRIED)
+            manhack.RemoveSpawnFlags(self.MANHACK_SF_CARRIED)
 
             # Release us
             manhack.RemoveSolidFlags(FSOLID_NOT_SOLID)
@@ -200,6 +209,7 @@ class UnitMetroPolice(BaseClass):
             manhack.DispatchEvent('Release')
 
     def ReleaseScanners(self):
+        self.scanners = list(filter(bool, getattr(self, 'scanners', [])))
         for scanner in self.scanners:
             #scanner.RemoveSpawnFlags(scanner.SF_MANHACK_CARRIED)
 
@@ -228,10 +238,14 @@ class UnitMetroPolice(BaseClass):
         '''
         
         self.manhacks = []
+        abi = self.activeability
+        unitname = getattr(abi, 'unitname', 'unit_manhack')
         
         for i in range(0, 1):
             # Create the manhack to throw
-            manhack = CreateUnitNoSpawn("unit_manhack", owner_number=self.GetOwnerNumber())
+            manhack = CreateUnitNoSpawn(unitname, owner_number=self.GetOwnerNumber())
+            if not manhack:
+                continue
             
             vecOrigin = Vector()
             vecAngles = QAngle()
@@ -241,7 +255,7 @@ class UnitMetroPolice(BaseClass):
 
             manhack.SetLocalOrigin(vecOrigin)
             manhack.SetLocalAngles(vecAngles)
-            manhack.AddSpawnFlags(manhack.SF_MANHACK_PACKED_UP|manhack.SF_MANHACK_CARRIED)
+            manhack.AddSpawnFlags(self.MANHACK_SF_PACKED_UP|self.MANHACK_SF_CARRIED)
 
             manhack.Spawn()
             manhack.behaviorgeneric.StartingAction = manhack.behaviorgeneric.ActionPreDeployed
@@ -432,7 +446,7 @@ class UnitMetroPolice(BaseClass):
         return groupmoveorder
 
     def OnTakeDamage(self, dmginfo):
-        if self.lasttakedamage and self.health > 0 and dmginfo.GetDamage() > 0:
+        if self.lasttakedamage and self.ShouldEmitHurtSound(dmginfo):
             self.EmitSound("unit_metropolice_hurt")
 
         '''if self.defensive_mode or self.insteadyposition:
@@ -465,6 +479,9 @@ class UnitMetroPolice(BaseClass):
 
     METROPOLICE_BODYGROUP_MANHACK = 1
     METROPOLICE_BODYGROUP_SCANNER = 1
+    MANHACK_SF_PACKED_UP = (1 << 16)
+    MANHACK_SF_CARRIED = (1 << 19)
+    deploymanhackabilities = ('deploymanhack', 'overrun_deploymanhack', 'char_deploymanhack')
         
     # Activity translation table
     acttables = dict(BaseClass.acttables)

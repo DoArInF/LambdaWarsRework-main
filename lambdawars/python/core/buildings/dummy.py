@@ -51,7 +51,7 @@ class UnitDummy(BaseClass):
     # UI
     def ShowBars(self):
         pass
-    def HideBars(self):
+    def HideBars(self, force=False):
         pass
 
 
