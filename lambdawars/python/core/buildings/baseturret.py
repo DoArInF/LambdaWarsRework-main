@@ -233,7 +233,7 @@ class UnitBaseTurret(BaseClass):
         info = FireBulletsInfo_t()
         info.shots = 1
         info.vecsrc = barrelend
-        info.vecdirshooting = forward
+        info.vecdirshooting = vecAdjustedForward
         info.vecspread = self.bulletspread
 
         info.distance = attackinfo.maxrange + 256.0 # slight increase in bullet travel range for guaranteed hits
@@ -342,5 +342,3 @@ class UnitBaseTurret(BaseClass):
     # Fallback
     unitinfofallback = TurretFallBackInfo
     unitinfovalidationcls = WarsTurretInfo
-
-    

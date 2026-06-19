@@ -1,5 +1,5 @@
 from entities import entity, FireBulletsInfo_t, WeaponSound, Activity
-from core.weapons import WarsWeaponBase, WarsWeaponMachineGun, VECTOR_CONE_1DEGREES
+from core.weapons import WarsWeaponBase, VECTOR_CONE_PRECALCULATED
 from wars_game.attributes import WinchesterAltAttribute
 
 
@@ -7,7 +7,7 @@ from wars_game.attributes import WinchesterAltAttribute
 class WeaponWinchester(WarsWeaponBase):
     def __init__(self):
         super().__init__()
-        self.bulletspread = VECTOR_CONE_1DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
     def PrimaryAttack(self):
         owner = self.GetOwner()
 

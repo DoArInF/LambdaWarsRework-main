@@ -1,12 +1,12 @@
 from entities import entity, Activity
-from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_5DEGREES, VECTOR_CONE_3DEGREES
+from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_PRECALCULATED
 
 @entity('weapon_smg1', networked=True)
 class WeaponSmg1(WarsWeaponMachineGun):
     def __init__(self):
         super().__init__()
         
-        self.bulletspread = VECTOR_CONE_5DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
 
     clientclassname = 'weapon_smg1'
     muzzleoptions = 'SMG1 MUZZLE'
@@ -26,7 +26,7 @@ class WeaponSmg1SW(WeaponSmg1):
     def __init__(self):
         super().__init__()
 
-        self.bulletspread = VECTOR_CONE_3DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
 
     class AttackPrimary(WarsWeaponMachineGun.AttackPrimary):
         maxrange = 640.0

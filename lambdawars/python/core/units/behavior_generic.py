@@ -692,6 +692,38 @@ class BehaviorGeneric(BaseBehavior):
             self.outer.navigator.nopathvelocity = False
             self.waitmoveuntilunderattack = False
 
+        def TryAttack(self, enemy, dist, allowmovement=True):
+            outer = self.outer
+
+            # Might need to wait
+            if outer.nextattacktime > gpGlobals.curtime:
+                return self.Continue()
+
+            facecone = None
+
+            # Find an attack we can do. Prefer attacks that can fire immediately,
+            # but actively face the target if the only blocker is the aim cone.
+            for attack in outer.attacks:
+                if (not allowmovement and attack.requiresmovement) or dist > attack.maxrange or not attack.CanAttack(enemy):
+                    continue
+                if not outer.FInAimCone(enemy, attack.cone):
+                    if facecone is None:
+                        facecone = attack.cone
+                    continue
+
+                ret = attack.Attack(enemy, self)
+                if type(ret) == bool:
+                    if ret:
+                        return self.SuspendFor(self.behavior.ActionWaitForActivityPassive, 'Waiting for attack animation',
+                                               self.outer.animstate.specificmainactivity)
+                    return self.Continue()
+                return ret
+
+            if facecone is not None:
+                return self.SuspendFor(self.behavior.ActionFaceTarget, 'Facing enemy before attack', enemy, facecone)
+
+            return None
+
         def Update(self):
             outer = self.outer
             enemy = self.enemy
@@ -726,26 +758,18 @@ class BehaviorGeneric(BaseBehavior):
 
             # Wait for events
             if not self.atgoal:
+                if outer.canshootmove:
+                    transition = self.TryAttack(enemy, dist, allowmovement=False)
+                    if transition is not None:
+                        return transition
                 return self.Continue()
 
             if self.forcedenemy and not enemy:
                 return self.Done('Lost enemy (enemy None)')
 
-            # Might need to wait
-            if outer.nextattacktime > gpGlobals.curtime:
-                return self.Continue()
-
-            # Find an attack we can do
-            for attack in outer.attacks:
-                if dist > attack.maxrange or not outer.FInAimCone(enemy, attack.cone) or not attack.CanAttack(enemy):
-                    continue
-                ret = attack.Attack(enemy, self)
-                if type(ret) == bool:
-                    if ret:
-                        return self.SuspendFor(self.behavior.ActionWaitForActivityPassive, 'Waiting for attack animation',
-                                               self.outer.animstate.specificmainactivity)
-                    return self.Continue()
-                return ret
+            transition = self.TryAttack(enemy, dist)
+            if transition is not None:
+                return transition
 
             return self.Continue()
 
@@ -783,14 +807,15 @@ class BehaviorGeneric(BaseBehavior):
             """ Called when the active weapon clip has runned out of ammo. """
             return self.SuspendFor(self.behavior.ActionReload, 'Waiting for reload animation')
 
-        # Ignore NavComplete and NavFailed.
-        # NavFailed is only called when the target dies, but is also
-        # covered by OnEnemyLost.
+        # Ignore target-death NavFailed. Enemy loss is handled by Update/OnEnemyLost,
+        # and ending this buried action would also kill steady/attack child actions.
         def OnNavComplete(self):
             return self.Continue()
 
-        # def OnNavFailed(self):
-        #    return self.Continue()
+        def OnNavFailed(self):
+            if not self.outer.IsValidEnemy(self.enemy, require_alive=self.goalflags & GF_REQTARGETALIVE):
+                return self.Continue()
+            return super().OnNavFailed()
 
         onresumedone = False
         atgoal = False

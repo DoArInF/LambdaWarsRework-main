@@ -1,6 +1,6 @@
 from vmath import Vector
 from entities import entity, Activity, WeaponSound
-from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_3DEGREES
+from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_PRECALCULATED
 from te import CEffectData, DispatchEffect
 from fields import FloatField
 
@@ -12,7 +12,7 @@ class WeaponAR2(WarsWeaponMachineGun):
     def __init__(self):
         super().__init__()
 
-        self.bulletspread = VECTOR_CONE_3DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
         self.tracercolor = Vector(0.1882, 0.502, 0.596)
         
     def GetTracerType(self): return "AR2Tracer"

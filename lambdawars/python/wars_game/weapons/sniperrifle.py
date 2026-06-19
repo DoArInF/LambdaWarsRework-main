@@ -1,7 +1,7 @@
 from srcbase import MASK_SOLID, COLLISION_GROUP_NONE, COLLISION_GROUP_BREAKABLE_GLASS
 from vmath import Vector
 from entities import entity, FireBulletsInfo_t, WeaponSound
-from core.weapons import WarsWeaponBase, VECTOR_CONE_1DEGREES
+from core.weapons import WarsWeaponBase, VECTOR_CONE_PRECALCULATED
 from core.abilities import AbilityAsAttack, AttackAbilityAsAttack
 from core.units import UnitInfo
 from wars_game.abilities.steadyposition import AbilitySteadyPosition
@@ -22,7 +22,7 @@ class WeaponSniperRifle(WarsWeaponBase):
         self.minrange2 = 0.0
         self.maxrange2 = 2048.0
         self.firerate = 3.5  # Initial attack speed
-        self.bulletspread = VECTOR_CONE_1DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
 
     def Precache(self):
         super().Precache()

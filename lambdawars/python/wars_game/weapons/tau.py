@@ -1,9 +1,9 @@
 from srcbase import SURF_SKY, DMG_SHOCK, FL_NPC
-from vmath import Vector, vec3_origin
+from vmath import Vector
 from gameinterface import CPVSFilter
 from utils import UTIL_ImpactTrace, UTIL_Tracer, TRACER_DONT_USE_ATTACHMENT
 from entities import entity, Activity, WeaponSound, CBeam, FireBulletsInfo_t
-from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_1DEGREES, WarsWeaponBase
+from core.weapons import VECTOR_CONE_PRECALCULATED, WarsWeaponBase
 from te import CEffectData, DispatchEffect, te
 from fields import FloatField
 from wars_game.statuseffects import StunnedEffectInfo
@@ -18,7 +18,7 @@ class WeaponTau(WarsWeaponBase):
     def __init__(self):
         super().__init__()
 
-        self.bulletspread = VECTOR_CONE_1DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
         self.serverdoimpactandtracer = True
     
     def DoImpactEffect(self, tr, damagetype):

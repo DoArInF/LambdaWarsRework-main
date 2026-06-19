@@ -147,7 +147,7 @@ class CombineCannon(UnitBaseAutoTurret):
         info = FireBulletsInfo_t()
         info.shots = 1
         info.vecsrc = barrelend
-        info.vecdirshooting = forward
+        info.vecdirshooting = vecAdjustedForward
         info.vecspread = Vector( 0, 0, 0 )
 
         info.distance = MAX_TRACE_LENGTH

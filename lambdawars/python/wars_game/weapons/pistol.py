@@ -1,12 +1,12 @@
 from entities import entity
-from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_3DEGREES
+from core.weapons import WarsWeaponMachineGun, VECTOR_CONE_PRECALCULATED
 
 @entity('weapon_pistol', networked=True)
 class WeaponPistol(WarsWeaponMachineGun):
     def __init__(self):
         super().__init__()
         
-        self.bulletspread = VECTOR_CONE_3DEGREES
+        self.bulletspread = VECTOR_CONE_PRECALCULATED
 
     clientclassname = 'weapon_pistol'
     muzzleoptions = 'PISTOL MUZZLE'
