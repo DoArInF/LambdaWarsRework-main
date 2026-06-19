@@ -91,6 +91,7 @@ if isserver:
             return self.CheckNearTurret()
             
         def OnStunned(self):
+            self.CancelAbilityOrder(debugmsg='Unit stunned while mounting turret')
             return self.ChangeTo(self.behavior.ActionStunned, 'Changing to stunned action')
         
         #movedtoturret = False

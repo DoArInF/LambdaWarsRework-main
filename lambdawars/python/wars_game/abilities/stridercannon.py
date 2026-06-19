@@ -81,7 +81,7 @@ if isserver:
             return self.SuspendFor(ActionExecuteFireCannon, 'Doing fire cannon action', self.order, self)
 
         def OnStunned(self):
-            self.order.ability.Cancel()
+            self.CancelAbilityOrder(debugmsg='Unit stunned while firing strider cannon')
             return self.ChangeTo(self.behavior.ActionStunned, 'Stunned')
             
 class AbilityStriderCannon(AbilityTarget):

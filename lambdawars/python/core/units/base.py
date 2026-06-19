@@ -41,7 +41,7 @@ else:
     from utils import UTIL_SetSize, UTIL_PlayerByIndex, UTIL_GetCommandClient
     
 from fields import (GenericField, EHandleField, ListField, DictField, IntegerField, FloatField, BooleanField,
-                    StringField, ObjectField, OutputField, input)
+                    StringField, ObjectField, OutputField, UpgradeField, input)
 
 from collections import defaultdict
 from math import floor
@@ -274,9 +274,13 @@ class UnitBaseShared(object):
                 self.health = unitinfo.health 
             self.maxhealth = self.health
             self.energy = unitinfo.unitenergy_initial if unitinfo.unitenergy_initial != -1 else unitinfo.unitenergy
-            # UpgradeFields may modify maxenergy, so prefer that over this. TODO: improvement desirable. Not very clear.
+            self.maxenergy = unitinfo.unitenergy
+            maxenergyfield = self.fields.get('maxenergy', None)
+            if isinstance(maxenergyfield, UpgradeField):
+                maxenergyfield.InitField(self)
             if self.maxenergy == 0:
                 self.maxenergy = unitinfo.unitenergy
+            self.energy = min(self.energy, self.maxenergy)
 
             # Add to the global unit list
             self.handlesactive = True

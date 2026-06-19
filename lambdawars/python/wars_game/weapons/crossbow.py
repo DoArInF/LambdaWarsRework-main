@@ -595,6 +595,8 @@ class WeaponCrossbow(WarsWeaponBase):
                 return False
 
             if not unit.insteadyposition:
+                if getattr(unit, 'steadying', False):
+                    return False
                 abi = unit.abilitiesbyname[RebelAbilitySteadyPosition.name]
                 return unit.abilitycheckautocast[abi.uid] and abi.CanDoAbility(None, unit=unit)
 
@@ -607,8 +609,12 @@ class WeaponCrossbow(WarsWeaponBase):
         def Attack(self, enemy, action):
             unit = self.unit
             if action and not unit.insteadyposition and not unit.garrisoned and not unit.unitinfo.sniperenemy:
+                if getattr(unit, 'steadying', False):
+                    return False
                 ability = unit.DoAbility(RebelAbilitySteadyPosition.name, [], autocasted=True, direct_from_attack=True)
-                return action.SuspendFor(ability.ActionDoSteadyPosition, 'Changing to steady position', ability, None)
+                if ability:
+                    return action.SuspendFor(ability.ActionDoSteadyPosition, 'Changing to steady position', ability, None)
+                return False
             return super().Attack(enemy, action)
 
     class AttackExplosiveBolt(WarsWeaponBase.AttackRange):

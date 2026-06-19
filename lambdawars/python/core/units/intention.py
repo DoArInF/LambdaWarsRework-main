@@ -78,6 +78,19 @@ class BaseAction(object):
         self.reason = reason
         return DONE
 
+    def CancelAbilityOrder(self, debugmsg=''):
+        """Cancel the ability order owned by this action, if there is one."""
+        order = getattr(self, 'order', None)
+        if not order:
+            return
+
+        ability = getattr(order, 'ability', None)
+        if ability and not ability.stopped:
+            ability.Cancel(debugmsg=debugmsg)
+
+        if getattr(self.outer, 'curorder', None) == order:
+            order.Remove(dispatchevent=False)
+
     # Encapsulation of Action processing
     def OnStart(self):
         """ Executed when the Action is transtioned into 
@@ -547,6 +560,10 @@ class BaseBehavior(UnitComponent):
         
         def OnAllOrdersCleared(self):
             return self.ChangeToIdle('Order cleared')
+
+        def OnStunned(self):
+            self.CancelAbilityOrder(debugmsg='Unit stunned while executing ability')
+            return self.ChangeTo(self.behavior.ActionStunned, 'Stunned')
             
         def ChangeToIdle(self, reason):
             if not self.changetoidleonlostorder:
@@ -582,6 +599,10 @@ class BaseBehavior(UnitComponent):
 
             if outer.curorder == self.order:
                 self.order.Remove(dispatchevent=False)
+
+        def OnStunned(self):
+            self.CancelAbilityOrder(debugmsg='Unit stunned while executing ability activity')
+            return self.ChangeTo(self.behavior.ActionStunned, 'Stunned')
         
         def OnSpecificActivityEnded(self, specificactivity):
             if specificactivity == self.activity:

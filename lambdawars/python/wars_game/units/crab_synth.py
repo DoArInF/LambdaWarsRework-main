@@ -166,6 +166,7 @@ class UnitCrabSynth(BaseClass):
         pChunk.Spawn(self.gibmodelnames[i], random.uniform(6.0, 8.0))
         pChunk.SetOwnerEntity(self)
         pChunk.SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+        pChunk.AddSolidFlags(FSOLID_NOT_SOLID)
         pPhysicsObject = pChunk.VPhysicsInitNormal(SOLID_VPHYSICS, pChunk.GetSolidFlags(), False)
 
         # Set the velocity

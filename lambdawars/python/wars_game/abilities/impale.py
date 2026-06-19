@@ -11,7 +11,7 @@ if isserver:
                     self.order.target, self.outer.STRIDER_STOMP_RANGE-self.stompadddist, goalflags=GF_REQTARGETALIVE, pathcontext=self)
                     
         def OnStunned(self):
-            self.order.ability.Cancel()
+            self.CancelAbilityOrder(debugmsg='Unit stunned while executing impale')
             return self.ChangeTo(self.behavior.ActionStunned, 'Stunned')
         def OnEnd(self):
             self.order.ability.Cancel()

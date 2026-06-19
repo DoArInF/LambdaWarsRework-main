@@ -22,7 +22,7 @@ class AbilitySteadyPosition(AbilityInstant):
             alwaysqueue = True if self.autocasted else False
             idx = 0 if alwaysqueue else None
             for unit in self.units:
-                if unit.in_cover or unit.insteadyposition:
+                if unit.in_cover or unit.insteadyposition or getattr(unit, 'steadying', False):
                     continue
                 # From the attack code we stack the action on top of the current attack action, so it does not get
                 # ended.
@@ -65,6 +65,9 @@ class AbilitySteadyPosition(AbilityInstant):
             # TODO: Don't interrupt steadying position when a new enemy is targeted while the unit is steadying for the previous attack
             # (e.g. a manhack flies in while the unit is steadying to shoot a more distant target)
 
+            def OnStart(self):
+                self.outer.steadying = True
+
             def Update(self):
                 outer = self.outer
 
@@ -80,6 +83,7 @@ class AbilitySteadyPosition(AbilityInstant):
                 super().OnEnd()
 
                 outer = self.outer
+                outer.steadying = False
                 outer.aimoving = False
                 if not self.steadiedposition:
                     outer.crouching = False
@@ -115,7 +119,7 @@ class AbilitySteadyPosition(AbilityInstant):
                 return self.SuspendFor(self.order.ability.ActionDoSteadyPosition, 'Do steady position',
                                        self.order.ability, self.order)
             def OnStunned(self):
-                self.order.ability.Cancel()
+                self.CancelAbilityOrder(debugmsg='Unit stunned while steadying position')
                 return self.ChangeTo(self.behavior.ActionStunned, 'Stunned')
 
 
