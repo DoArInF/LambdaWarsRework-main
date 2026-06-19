@@ -13,7 +13,7 @@ from fields import FloatField, ListField, IntegerField
 
 if isserver:
     from entities import CreateEntityByName, DispatchSpawn, variant_t, CPhysicsProp, PropBreakablePrecacheAll, CTakeDamageInfo, RadiusDamage, Class_T
-    from core.units import UnitCombatSense
+    from core.units import UnitCombatSense, UnitBaseAirLocomotion
     from utils import UTIL_Remove, ExplosionCreate
     @entity('wars_barrel')
     class Barrel(CPhysicsProp):
@@ -220,21 +220,58 @@ class AbilityReleaseBarrels(AbilityTarget):
         self.Completed()
             
     @classmethod
+    def IsAirTarget(info, target):
+        locomotioncls = getattr(target.__class__, 'LocomotionClass', None)
+        return locomotioncls and issubclass(locomotioncls, UnitBaseAirLocomotion)
+
+    @classmethod
+    def FindAutoCastTarget(info, unit):
+        if not unit.senses:
+            return None
+
+        owner = unit.GetOwnerNumber()
+        origin = unit.GetAbsOrigin()
+        maxrangesqr = info.maxrange * info.maxrange
+        bestenemy = None
+        bestdistsqr = None
+
+        for enemy in filter(bool, unit.senses.GetEnemies()):
+            if not enemy.IsAlive():
+                continue
+
+            if info.IsAirTarget(enemy):
+                continue
+
+            enemyorigin = enemy.GetAbsOrigin()
+            if FogOfWarMgr().PointInFOW(enemyorigin, owner):
+                continue
+
+            distsqr = enemyorigin.DistToSqr(origin)
+            if distsqr > maxrangesqr:
+                continue
+
+            if bestdistsqr is None or distsqr < bestdistsqr:
+                bestenemy = enemy
+                bestdistsqr = distsqr
+
+        return bestenemy
+
+    @classmethod
     def CheckAutoCast(info, unit):
-        enemy = unit.senses.GetNearestEnemy()
+        if not info.CanDoAbility(None, unit=unit):
+            return False
+
+        enemy = info.FindAutoCastTarget(unit)
         if not enemy:
-            return
-            
+            return False
+
         enemyorigin = enemy.GetAbsOrigin()
-        
-        if info.CanDoAbility(None, unit=unit):
-            leftpressed = MouseTraceData()
-            leftpressed.endpos = enemyorigin
-            leftpressed.groundendpos = enemyorigin
-            leftpressed.ent = enemy
-            unit.DoAbility(info.name, mouse_inputs=[('leftpressed', leftpressed)])
-            return True
-        return False
+        leftpressed = MouseTraceData()
+        leftpressed.endpos = enemyorigin
+        leftpressed.groundendpos = enemyorigin
+        leftpressed.ent = enemy
+        unit.DoAbility(info.name, mouse_inputs=[('leftpressed', leftpressed)], autocasted=True)
+        return True
     
     def UpdateParticleEffects(self, inst, targetpos):
         if not self.unit:

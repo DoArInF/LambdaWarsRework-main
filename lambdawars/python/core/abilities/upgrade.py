@@ -107,8 +107,34 @@ class AbilityUpgradeValue(AbilityUpgrade):
     def OnUpgraded(self):
         from core.units import unitlist # FIXME
         for unit in unitlist[self.ownernumber]:
+            oldhealth = getattr(unit, 'health', None)
+            oldmaxhealth = getattr(unit, 'maxhealth', None)
+            healthfields = []
+            maxhealthupgraded = False
+
             for field in unit.fields.values():
-                if isinstance(field, UpgradeField) and field.abilityname == self.name:
+                if not isinstance(field, UpgradeField) or field.abilityname != self.name:
+                    continue
+
+                if field.name == 'health':
+                    healthfields.append(field)
+                    continue
+
+                if field.name == 'maxhealth':
+                    maxhealthupgraded = True
+
+                field.InitField(unit) # Reinit
+
+            for field in healthfields:
+                if maxhealthupgraded and oldhealth is not None and oldmaxhealth is not None:
+                    if oldhealth <= 0:
+                        unit.health = oldhealth
+                        continue
+
+                    missinghealth = max(0, oldmaxhealth - oldhealth)
+                    newhealth = unit.maxhealth - missinghealth
+                    unit.health = min(unit.maxhealth, max(1, newhealth))
+                else:
                     field.InitField(unit) # Reinit
     
     #: The upgraded value

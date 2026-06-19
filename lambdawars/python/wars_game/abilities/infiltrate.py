@@ -11,6 +11,7 @@ class AbilityInfiltrate(AbilityInstant):
     hidden = True
     cloakallowed = True
     activatesoundscript = 'ability_infiltrate'
+    allowcontinueability = False
     
     # Ability Code
     @classmethod    

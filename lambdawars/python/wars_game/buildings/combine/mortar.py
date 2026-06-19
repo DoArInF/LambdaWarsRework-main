@@ -1,12 +1,12 @@
 '''
 Combine Mortar.
 '''
-from srcbase import DMG_BLAST, DMG_DISSOLVE, MASK_SOLID_BRUSHONLY, COLLISION_GROUP_NONE
+from srcbase import DMG_BLAST, DMG_DISSOLVE, MASK_SOLID_BRUSHONLY, COLLISION_GROUP_NONE, FL_NPC
 from vmath import Vector, QAngle, vec3_origin, VectorAngles
 from core.buildings import UnitBaseBuilding as BaseClass, CreateDummy, WarsBuildingInfo
 from .basepowered import PoweredBuildingInfo, BaseFactoryPoweredBuilding
 from core.abilities import AbilityTarget
-from entities import entity, MouseTraceData
+from entities import entity, MouseTraceData, D_HT
 from fields import FloatField, input, fieldtypes
 from particles import PrecacheParticleSystem, DispatchParticleEffect, PATTACH_CUSTOMORIGIN
 from gameinterface import CPASAttenuationFilter
@@ -14,8 +14,9 @@ from fow import FogOfWarMgr
 
 if isserver:
     from entities import CTakeDamageInfo, RadiusDamage, CLASS_NONE
-    from core.units import UnitCombatSense
-    from utils import UTIL_ScreenShake, SHAKE_START, UTIL_DecalTrace, UTIL_TraceLine, trace_t
+    from core.units import UnitCombatSense, UnitBaseAirLocomotion
+    from utils import (UTIL_ScreenShake, SHAKE_START, UTIL_DecalTrace, UTIL_TraceLine,
+                       UTIL_EntitiesInSphere, trace_t)
 
 
 #class CombineMortar(BaseFactoryPoweredBuilding, BaseClass):
@@ -178,30 +179,68 @@ class AbilityCombFireMortar(AbilityTarget):
         if not self.TakeResources(refundoncancel=True):
             self.Cancel(cancelmsg='#Ability_NotEnoughResources', debugmsg='not enough resources')
             return
-            
+
+        if not self.TakeEnergy(self.unit):
+            self.Cancel(cancelmsg='#Ability_NotEnoughEnergy', debugmsg='not enough energy')
+            return
+
         self.unit.FireMortar(targetpos)
-        
-        unit = self.TakeEnergy(self.unit)
         self.SetRecharge(self.unit)
         self.Completed()
 
     @classmethod
+    def IsAirTarget(info, target):
+        locomotioncls = getattr(target.__class__, 'LocomotionClass', None)
+        return locomotioncls and issubclass(locomotioncls, UnitBaseAirLocomotion)
+
+    @classmethod
+    def FindAutoCastTarget(info, unit):
+        owner = unit.GetOwnerNumber()
+        origin = unit.GetAbsOrigin()
+        maxrangesqr = info.maxrange * info.maxrange
+        bestenemy = None
+        bestdistsqr = None
+
+        for enemy in filter(bool, UTIL_EntitiesInSphere(128, origin, info.maxrange, FL_NPC)):
+            if enemy == unit or not enemy.IsAlive() or not enemy.IsUnit():
+                continue
+
+            if unit.IRelationType(enemy) != D_HT:
+                continue
+
+            if info.IsAirTarget(enemy):
+                continue
+
+            enemyorigin = enemy.GetAbsOrigin()
+            if FogOfWarMgr().PointInFOW(enemyorigin, owner):
+                continue
+
+            distsqr = enemyorigin.DistToSqr(origin)
+            if distsqr > maxrangesqr:
+                continue
+
+            if bestdistsqr is None or distsqr < bestdistsqr:
+                bestenemy = enemy
+                bestdistsqr = distsqr
+
+        return bestenemy
+
+    @classmethod
     def CheckAutoCast(info, unit):
-        unit.senses.PerformSensing()
+        if not info.CanDoAbility(None, unit=unit):
+            return False
 
-        enemy = unit.senses.GetNearestEnemy()
+        enemy = info.FindAutoCastTarget(unit)
         if not enemy:
-            return
-        enemyorigin = enemy.GetAbsOrigin()
+            return False
 
-        if info.CanDoAbility(None, unit=unit):
-            leftpressed = MouseTraceData()
-            leftpressed.endpos = enemyorigin
-            leftpressed.groundendpos = enemyorigin
-            leftpressed.ent = enemy
-            unit.DoAbility(info.name, mouse_inputs=[('leftpressed', leftpressed)])
-            return True
-        return False
+        enemyorigin = enemy.GetAbsOrigin()
+        leftpressed = MouseTraceData()
+        leftpressed.endpos = enemyorigin
+        leftpressed.groundendpos = enemyorigin
+        leftpressed.ent = enemy
+        unit.DoAbility(info.name, mouse_inputs=[('leftpressed', leftpressed)], autocasted=True)
+        return True
 
     @classmethod
     def OnUnitThink(info, unit):

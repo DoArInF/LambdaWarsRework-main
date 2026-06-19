@@ -226,7 +226,7 @@ class Overrun(WarsBaseGameRules):
             if self.modificator_camera:
                 if not self.snapcameranexttime > gpGlobals.curtime:
                     for player in self.GetRealPlayers():
-                        if player is None or not player.IsConnected():
+                        if not self.IsActiveGamePlayer(player):
                             continue     
                         #player.SnapCameraTo(enemy.GetAbsOrigin() + Vector(0,0,1))
                         player.SetLocalAngles(QAngle(random.randint(-180, 180), random.randint(-180, 180), 0))
@@ -235,9 +235,8 @@ class Overrun(WarsBaseGameRules):
             if self.modificator_random:
                 if not self.checkplayersunit > gpGlobals.curtime:
                     for player in self.GetRealPlayers():
-                        if player is None or not player.IsConnected():
+                        if not self.IsActiveGamePlayer(player):
                             continue
-                        playerowner = player.GetOwnerNumber()
                         if self.modificator_random == 2:
                             owner = player.GetOwnerNumber()
                             unitowner = OWNER_ENEMY
@@ -374,9 +373,9 @@ class Overrun(WarsBaseGameRules):
         
         criticalbuildingtypes = [
             'build_comb_hq',
-            'build_comb_hq_overrun',
+            'overrun_build_comb_hq',
             'build_reb_hq',
-            'build_reb_hq_overrun',
+            'overrun_build_reb_hq',
         ]
 
         random_effect_protected_unit_types = frozenset([
@@ -397,6 +396,16 @@ class Overrun(WarsBaseGameRules):
                 return False
 
             return True
+
+        def IsActiveGamePlayer(self, player):
+            if player is None or not player.IsConnected():
+                return False
+
+            data = self.GetPlayerGameData(player=player)
+            if not data or self.IsPlayerDefeated(data):
+                return False
+
+            return player.GetOwnerNumber() == data.get('ownernumber', None)
 
         def GetActiveGamePlayerOwnerNumbers(self):
             ownernumbers = set()
