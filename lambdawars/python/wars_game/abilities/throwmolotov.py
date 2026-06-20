@@ -21,6 +21,9 @@ class AbilityThrowMolotov(AbilityThrowObject):
     throwstartattachment = 'anim_attachment_LH'
     useanimationevent = True
     objectclsname = 'molotov'
+    drop_self_ground_target = True
+    target_worldspace_center = True
+    target_ground_impact = True
     defaultautocast = True
     autocast_exclude = ['throwstinkbomb']
     

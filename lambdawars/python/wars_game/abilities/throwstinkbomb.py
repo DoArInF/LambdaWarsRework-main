@@ -21,6 +21,9 @@ class AbilityThrowStinkBomb(AbilityThrowObject):
     throwstartattachment = 'anim_attachment_LH'
     useanimationevent = True
     objectclsname = 'stinkbomb'
+    drop_self_ground_target = True
+    target_worldspace_center = True
+    target_ground_impact = True
     #defaultautocast = True
     supportsautocast = True
     autocast_exclude = ['throwmolotov']
@@ -29,11 +32,15 @@ class AbilityThrowStinkBomb(AbilityThrowObject):
     def SelectUnits(self):
         return self.SelectGroupUnits()
 
+    def ShouldRandomizeThrowEnd(self):
+        return False
+
     def GetTossStartAndEnd(self, unit):
         start, end = super().GetTossStartAndEnd(unit)
         end = Vector(end)
-        end.x += random.uniform(-100.0, 100.0)
-        end.y += random.uniform(-100.0, 100.0)
+        if self.ShouldRandomizeThrowEnd():
+            end.x += random.uniform(-100.0, 100.0)
+            end.y += random.uniform(-100.0, 100.0)
         return start, end
         
     allowmultipleability = True

@@ -5,6 +5,21 @@ from unit_helper import VecCheckThrowTolerance
 from entities import FOWFLAG_HIDDEN, FOWFLAG_NOTRANSMIT
 import random
 
+
+def GetUnitGroundTargetRadius(unit):
+    try:
+        radius = unit.CollisionProp().BoundingRadius2D()
+    except AttributeError:
+        radius = 48.0
+    return max(radius + 64.0, 96.0)
+
+
+def IsGroundTargetWithinUnitRadius(unit, targetpos):
+    if not unit or targetpos is None:
+        return False
+    return (targetpos - unit.GetAbsOrigin()).Length2D() <= GetUnitGroundTargetRadius(unit)
+
+
 if isserver:
     from entities import CreateEntityByName, DispatchSpawn
     from utils import UTIL_PrecacheOther, UTIL_PredictedPosition
@@ -23,8 +38,9 @@ if isserver:
                 dist = outer.EnemyDistance(abi.throwtarget)
             else:
                 dist = (outer.GetAbsOrigin() - abi.throwtargetpos).Length2D()
+            selfgroundtarget = abi.ShouldDropOnSelfGroundTarget(outer, abi.throwtargetpos)
             fnloscheck = outer.GrenadeInRangeLOSCheck if hasattr(outer, 'GrenadeInRangeLOSCheck') else None
-            if fnloscheck:
+            if fnloscheck and not selfgroundtarget:
                 if dist > throwrange or not fnloscheck(self.order.position, abi.throwtarget):
                     return self.SuspendFor(self.behavior.ActionMoveInRange, 'Moving into grenade throw range', target, maxrange=throwrange, fncustomloscheck=fnloscheck) 
             else:
@@ -32,7 +48,7 @@ if isserver:
                     return self.SuspendFor(self.behavior.ActionMoveInRange, 'Moving into grenade throw range', target, maxrange=throwrange) 
                     
             # Facing?
-            if not outer.FInAimCone(target, abi.facingminimum):
+            if not selfgroundtarget and not outer.FInAimCone(target, abi.facingminimum):
                 return self.SuspendFor(self.behavior.ActionFaceTarget, 'Not facing target', target, abi.facingminimum)
 
             self.throwedobject = True
@@ -90,6 +106,9 @@ class AbilityThrowObject(AbilityTarget):
     throwtarget = None
 
     thumble_through_air = BooleanField(value=True)
+    drop_self_ground_target = False
+    target_worldspace_center = False
+    target_ground_impact = False
     
     if isserver:
         @classmethod           
@@ -117,8 +136,12 @@ class AbilityThrowObject(AbilityTarget):
             pos = data.groundendpos
             target = data.ent
             self.throwtargetpos = pos
+            self.throwtarget = None
             if target and not target.IsWorld():
-                self.throwtarget = target
+                if self.ShouldTreatEntityAsGroundTarget(target):
+                    target = None
+                else:
+                    self.throwtarget = target
             
             if not self.TakeResources(refundoncancel=True):
                 self.Cancel(cancelmsg='#Ability_NotEnoughResources', debugmsg='not enough resources')
@@ -148,16 +171,28 @@ class AbilityThrowObject(AbilityTarget):
             startpos += self.throwstartoffset
 
             if self.throwtarget:
-                endpos = self.throwtarget.GetAbsOrigin()
+                endpos = self.GetThrowTargetPosition(self.throwtarget)
                 if self.predict_target_position:
                     UTIL_PredictedPosition(self.throwtarget, 0.5, endpos)
             else:
                 endpos = self.throwtargetpos
 
             return startpos, endpos
+
+        def GetThrowTargetPosition(self, target):
+            if self.target_worldspace_center:
+                try:
+                    targetpos = Vector(target.WorldSpaceCenter())
+                    if self.target_ground_impact:
+                        targetpos.z = target.GetAbsOrigin().z
+                    return targetpos
+                except AttributeError:
+                    pass
+            return target.GetAbsOrigin()
             
         def ThrowObject(self, unit):
             startpos, endpos = self.GetTossStartAndEnd(unit)
+            droppedonselftarget = self.ShouldDropOnSelfGroundTarget(unit, endpos)
 
             throwobj = self.TossObject(unit, startpos, endpos, unit.CalculateIgnoreOwnerCollisionGroup())
 
@@ -165,6 +200,8 @@ class AbilityThrowObject(AbilityTarget):
                 self.OnObjectThrowed(unit, throwobj)
                 self.Completed()
                 throwobj.SetVelocity(throwobj.GetAbsVelocity(), Vector(0, 0, 0))
+                if droppedonselftarget and hasattr(throwobj, 'Detonate'):
+                    throwobj.Detonate(None)
             
         def OnObjectThrowed(self, unit, throwobject):
             self.throwobject = throwobject
@@ -205,6 +242,44 @@ class AbilityThrowObject(AbilityTarget):
                     return None
 
             return vecToss
+
+        def ShouldDropOnSelfGroundTarget(self, unit, targetpos):
+            return self.drop_self_ground_target and self.throwtarget is None and IsGroundTargetWithinUnitRadius(unit, targetpos)
+
+        def ShouldTreatEntityAsGroundTarget(self, target):
+            if not self.drop_self_ground_target or not target:
+                return False
+
+            try:
+                targethandle = target.GetHandle()
+            except AttributeError:
+                targethandle = target
+
+            for unit in self.units:
+                if target == unit:
+                    return True
+                try:
+                    if targethandle == unit.GetHandle():
+                        return True
+                except AttributeError:
+                    continue
+            return False
+
+        def DropObjectAtTarget(self, unit, targetpos):
+            throwobject = CreateEntityByName(self.objectclsname)
+            if not throwobject:
+                return None
+
+            droppos = Vector(targetpos)
+            droppos.z += 8.0
+            throwobject.SetAbsOrigin(droppos)
+            throwobject.SetAbsAngles(vec3_angle)
+            throwobject.SetOwnerNumber(unit.GetOwnerNumber())
+            throwobject.AddFOWFlags(FOWFLAG_HIDDEN | FOWFLAG_NOTRANSMIT)
+            DispatchSpawn(throwobject)
+            throwobject.SetThrower(unit)
+            throwobject.SetOwnerEntity(unit)
+            return throwobject
     
         def TossObject(self, unit, startpos, targetpos, collisiongroup):
             """ Tosses the object from start to target. May fail. 
@@ -220,6 +295,9 @@ class AbilityThrowObject(AbilityTarget):
             """
             if not unit:
                 return None;
+
+            if self.ShouldDropOnSelfGroundTarget(unit, targetpos):
+                return self.DropObjectAtTarget(unit, targetpos)
 
             # Try and spit at our target
             vecToss = self.GetTossVector(unit, startpos, targetpos, collisiongroup)

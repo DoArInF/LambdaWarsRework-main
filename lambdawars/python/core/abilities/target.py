@@ -23,6 +23,9 @@ class AbilityTarget(AbilityBase):
         The default option is to operate on a single unit. Use AbilityTargetGroup if you want
         to operate on the complete player unit selection.
     """
+    queueorder_defer_requirements = set(['notinterruptible', 'recharging'])
+    allowqueueorder_defer_requirements = True
+
     @classmethod           
     def Precache(info):
         super().Precache()

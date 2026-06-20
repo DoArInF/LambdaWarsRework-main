@@ -19,6 +19,7 @@ import re
 if isserver:
     from unit_helper import BaseAnimEventHandler, TossGrenadeAnimEventHandler
     from animation import Animevent
+    from wars_game.abilities.grenade import TryDropGrenadeOnSelfGroundTarget
 
 @entity('unit_citizen', networked=True)
 class UnitCitizen(BaseClass):    
@@ -188,7 +189,9 @@ class UnitCitizen(BaseClass):
 
                 #UTIL_PredictedPosition(enemy, 0.5, targetpos) 
 
-                grenade = self.TossGrenade(unit, startpos, targetpos, unit.CalculateIgnoreOwnerCollisionGroup())
+                grenade = TryDropGrenadeOnSelfGroundTarget(abi, unit, targetpos)
+                if not grenade:
+                    grenade = self.TossGrenade(unit, startpos, targetpos, unit.CalculateIgnoreOwnerCollisionGroup())
 
                 if grenade:
                     abi.OnGrenadeThrowed(unit, grenade)

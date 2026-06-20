@@ -389,6 +389,12 @@ class AbilityInfo(gamemgr.BaseInfo, metaclass=AbilityInfoMetaClass):
     #: Useful for linked abilities
     recharge_other_abilities = ListField()
 
+    #: Requirements that may be deferred when the player queues the ability with shift.
+    #: Resource and energy costs are intentionally not deferred here: many abilities
+    #: reserve or spend them when the order is queued, not when the order starts.
+    queueorder_defer_requirements = set()
+    allowqueueorder_defer_requirements = False
+
     #: Set recharge for ability on unit when spawned
     set_initial_recharge = BooleanField(value=False)
     
@@ -557,6 +563,12 @@ class AbilityInfo(gamemgr.BaseInfo, metaclass=AbilityInfoMetaClass):
             the returned set is empty."""
         requirements = info.GetRequirements(player, unit)
         return len(requirements) == 0
+
+    @classmethod
+    def CanQueueOrderWithRequirements(info, requirements):
+        if not info.allowqueueorder_defer_requirements:
+            return False
+        return bool(requirements) and requirements <= info.queueorder_defer_requirements
         
     @staticmethod
     def GetTechNode(*args, **kwargs):

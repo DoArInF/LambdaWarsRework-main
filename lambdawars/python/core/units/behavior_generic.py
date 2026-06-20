@@ -4,7 +4,7 @@ import random
 from .intention import BaseBehavior, BaseAction
 from unit_helper import UnitBasePath, GF_NOCLEAR, GF_REQTARGETALIVE, GF_USETARGETDIST, GF_OWNERISTARGET, GF_NOLOSREQUIRED, GF_ATGOAL_RELAX
 from entities import Activity, MouseTraceData, D_HT, ACT_INVALID
-from core.units.orders import coverspotsearchradiushover
+from core.units.orders import coverspotsearchradiushover, Order
 from utils import UTIL_DropToFloor
 import ndebugoverlay
 from _recast import RecastMgr
@@ -112,6 +112,14 @@ class BehaviorGeneric(BaseBehavior):
                 ability = o.ability
                 action = getattr(ability, '%s_action' % self.behavior.name, None)
                 if action:
+                    deferredrequirements = ability.GetDeferredQueueOrderRequirements(self.outer)
+                    if deferredrequirements:
+                        requirements = ability.GetRequirements(ability.player, self.outer)
+                        if self.outer.activeability == ability:
+                            requirements.discard('notinterruptible')
+                        if requirements & deferredrequirements:
+                            o.Remove(dispatchevent=False)
+                            return self.ChangeTo(self.behavior.ActionIdle, 'Queued ability requirements still not met')
                     return self.ChangeTo(action, 'Ability order received', o)
             else:
                 assert (0)
@@ -273,7 +281,8 @@ class BehaviorGeneric(BaseBehavior):
 
         def OnEnd(self):
             super().OnEnd()
-            self.outer.navigator.StopMoving()
+            if not self.preserve_movement_on_end:
+                self.outer.navigator.StopMoving()
 
         def OnSuspend(self):
             """ Suspended for an another action. Stop moving and save our path information"""
@@ -297,6 +306,7 @@ class BehaviorGeneric(BaseBehavior):
         target = None
         targetorigin = Vector(vec3_origin)
         savedpath = None
+        preserve_movement_on_end = False
 
     class ActionMoveToIdlePosition(ActionMoveTo):
         def Init(self, idleposition, tolerance=64.0, hidespot=None, **kwargs):
@@ -552,6 +562,10 @@ class BehaviorGeneric(BaseBehavior):
             return super().OnEnd()
 
         def Update(self):
+            transition = self.TryAdvanceQueuedMoveOrder()
+            if transition:
+                return transition
+
             followtarget = self.order.target
             outer = self.outer
             enemy = outer.enemy
@@ -567,6 +581,33 @@ class BehaviorGeneric(BaseBehavior):
                 outer.navigator.facingtarget = None  # Make sure we are not facing the enemy anymore
                 return self.Continue()
             return self.CheckAttacks()
+
+        def TryAdvanceQueuedMoveOrder(self):
+            outer = self.outer
+            order = self.order
+
+            if outer.curorder != order or len(outer.orders) <= 1:
+                return None
+            enemy = outer.enemy
+            if enemy and outer.IsValidEnemy(enemy):
+                return None
+            if order.target or order.hidespot or order.force_face_angle:
+                return None
+
+            nextorder = outer.orders[1]
+            if nextorder.type != Order.ORDER_MOVE:
+                return None
+
+            try:
+                distance = outer.navigator.GetGoalDistance()
+            except AttributeError:
+                return None
+            if distance > self.queued_order_advance_distance:
+                return None
+
+            order.Remove(dispatchevent=False, allowrepeat=True)
+            self.preserve_movement_on_end = True
+            return self.ChangeTo(self.behavior.ActionOrderMove, 'Queued move advanced before full stop', nextorder)
 
         def UpdateGoalFlags(self):
             outer = self.outer
@@ -617,6 +658,8 @@ class BehaviorGeneric(BaseBehavior):
         def OnEnemyLost(self):
             self.enemy = None
             return self.Continue()
+
+        queued_order_advance_distance = 96.0
 
     class ActionAttackNoMovement(ActionAttackSharedNotActive, BaseAction):
         """ The unit executing this action will try to attack the enemy when
@@ -859,15 +902,29 @@ class BehaviorGeneric(BaseBehavior):
 
         def OnNewEnemy(self, enemy):
             if enemy.IsAlive():
-                return self.SuspendFor(self.behavior.ActionAttack, 'New enemy', enemy)
+                transition = self.SuspendFor(self.behavior.ActionAttack, 'New enemy', enemy)
             else:
-                return self.SuspendFor(self.behavior.ActionAttack, 'New enemy (not alive)', enemy, goalflags=GF_NOCLEAR | GF_USETARGETDIST)
+                transition = self.SuspendFor(self.behavior.ActionAttack, 'New enemy (not alive)', enemy, goalflags=GF_NOCLEAR | GF_USETARGETDIST)
+            self.nextaction.preserve_movement_on_end = True
+            return transition
+
+        def OnResume(self):
+            self.savedpath = None
+            transition = super().OnStart()
+            if transition:
+                return transition
+
+            enemy = self.outer.enemy
+            if enemy and self.outer.IsValidEnemy(enemy):
+                return self.OnNewEnemy(enemy)
+            return self.Continue()
 
     class ActionOrderAttackMove(ActionAttackMove):
         """ Same as ActionAttackMove, but is done on resume when the current order is
             different from the provided one. """
 
         def Init(self, order, *args, **kwargs):
+            self.targetonly = kwargs.pop('targetonly', getattr(order, 'attackmove_target_only', False))
             super().Init(*args, **kwargs)
             self.order = order
 
@@ -882,12 +939,63 @@ class BehaviorGeneric(BaseBehavior):
         def OnResume(self):
             if self.outer.curorder != self.order:
                 return self.Done('Action done, order changed.')
+            if self.IsTargetOnlyOrderDone():
+                return self.Done('Action done, attack-move target lost.')
             return super().OnResume()
 
+        def IsTargetOnlyOrderDone(self):
+            if not self.targetonly:
+                return False
+
+            target = self.order.target
+            if not target:
+                return True
+
+            try:
+                if not target.IsAlive():
+                    return True
+            except AttributeError:
+                try:
+                    if target.health <= 0:
+                        return True
+                except AttributeError:
+                    pass
+
+            return False
+
+        def Update(self):
+            transition = self.TryAdvanceRepeatOrder()
+            if transition:
+                return transition
+            return super().Update()
+
+        def TryAdvanceRepeatOrder(self):
+            if not self.order.repeat or len(self.outer.orders) <= 1:
+                return None
+
+            enemy = self.outer.enemy
+            if enemy and self.outer.IsValidEnemy(enemy):
+                return None
+
+            try:
+                distance = self.outer.navigator.GetGoalDistance()
+            except AttributeError:
+                return None
+            if distance > self.repeat_order_advance_distance:
+                return None
+
+            self.preserve_movement_on_end = True
+            self.order.Remove(dispatchevent=False, allowrepeat=True)
+            return self.Done('Repeat attack move advanced before full stop')
+
         def OnNavComplete(self):
+            self.preserve_movement_on_end = self.order.repeat and len(self.outer.orders) > 1
             self.order.Remove(dispatchevent=False, allowrepeat=True)
 
             return super().OnNavComplete()
+
+        repeat_order_advance_distance = 96.0
+        targetonly = False
 
     class ActionAbilityAttackMove(BaseBehavior.ActionInterruptible, BaseBehavior.ActionAbility):
         def OnStart(self):
@@ -899,8 +1007,10 @@ class BehaviorGeneric(BaseBehavior):
                     self.outer.AddEntityRelationship(target, D_HT, 10)
                     self.outer.senses.ForcePerformSensing()
                     self.outer.UpdateEnemy(self.outer.senses)  # Extra check
-                goalflags = GF_REQTARGETALIVE if target.IsAlive() else 0
-                return self.SuspendFor(self.behavior.ActionOrderAttackMove, "Attack move target", self.order, target, tolerance=32.0, goalflags=goalflags)
+                targetonly = getattr(self.order, 'attackmove_target_only', False)
+                if targetonly:
+                    return self.SuspendFor(self.behavior.ActionOrderAttack, "Attack move target only", self.order)
+                return self.SuspendFor(self.behavior.ActionOrderAttackMove, "Attack move position with target seed", self.order, self.order.position, tolerance=32.0, goalflags=0, targetonly=targetonly)
             return self.SuspendFor(self.behavior.ActionOrderAttackMove, "Attack move position", self.order, self.order.position, tolerance=32.0, goalflags=0)
 
         def OnResume(self):
@@ -909,8 +1019,21 @@ class BehaviorGeneric(BaseBehavior):
             # that changes back to the idle action.
             if self.outer.curorder == self.order:
                 self.order.Remove(allowrepeat=True)
-            else:
-                return super().OnResume()
+                return
+
+            nextorder = self.outer.curorder
+            if self.CanContinueRepeatAttackMove(nextorder):
+                return self.ChangeTo(self.behavior.ActionAbilityAttackMove, 'Repeat attack move advanced', nextorder)
+            return super().OnResume()
+
+        def CanContinueRepeatAttackMove(self, order):
+            if not order or not order.repeat or not order.ability:
+                return False
+            if not self.order or not self.order.ability:
+                return False
+            if order.ability.name != self.order.ability.name:
+                return False
+            return getattr(order.ability, '%s_action' % self.behavior.name, None) == self.behavior.ActionAbilityAttackMove
 
         def OnEnd(self):
             if self.htrelapplied:

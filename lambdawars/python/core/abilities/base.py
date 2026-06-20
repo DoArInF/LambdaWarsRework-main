@@ -73,6 +73,8 @@ class AbilityBase(AbilityInfo):
         self.timestamp = gpGlobals.curtime
         self.autocasted = autocasted
         self.kwarguments = kwargs
+        self.queueorder = bool(getattr(self.player, 'buttons', 0) & IN_SPEED)
+        self.queueorder_deferred_requirements = {}
         
         # Precache in we are not precached yet
         PrecacheAbility(self.name)
@@ -472,6 +474,33 @@ class AbilityBase(AbilityInfo):
         if not set(self.units).issubset(set(player.GetSelection())):
             self.ClearMouse()
         
+    def GetQueueOrderRequirementsKey(self, unit):
+        return unit.GetHandle() if hasattr(unit, 'GetHandle') else unit
+
+    def UnitPassesAbilitySelection(self, unit, abiinfo):
+        """Returns whether a unit may participate in this ability.
+
+        Shift queued abilities may temporarily ignore a small set of requirements,
+        but the queued order must re-check them before execution.
+        """
+        player = self.player
+        activeability = unit.activeability
+        if activeability and not activeability.interruptible and not self.queueorder:
+            return False
+
+        requirements = abiinfo.GetRequirements(player, unit)
+        if not requirements:
+            return True
+
+        if self.queueorder and abiinfo.CanQueueOrderWithRequirements(requirements):
+            self.queueorder_deferred_requirements[self.GetQueueOrderRequirementsKey(unit)] = set(requirements)
+            return True
+
+        return False
+
+    def GetDeferredQueueOrderRequirements(self, unit):
+        return self.queueorder_deferred_requirements.get(self.GetQueueOrderRequirementsKey(unit), set())
+
     def SelectGroupUnits(self):
         """ Selects all units in the player selection which have this ability and can
             do the ability at his moment.
@@ -484,17 +513,13 @@ class AbilityBase(AbilityInfo):
             if not self.autocasted and not unit.CanPlayerControlUnit(player):
                 continue
                 
-            activeability = unit.activeability
-            if activeability and not activeability.interruptible:
-                continue
-
             # Get the ability
             if self.name not in unit.abilitiesbyname:
                 continue
             abiinfo = unit.abilitiesbyname[self.name]
             
             # Can do?
-            if not abiinfo.CanDoAbility(player, unit):
+            if not self.UnitPassesAbilitySelection(unit, abiinfo):
                 continue
                 
             self.AddUnit(unit)
@@ -529,21 +554,17 @@ class AbilityBase(AbilityInfo):
             if not self.autocasted and not unit.CanPlayerControlUnit(player):
                 continue
             
-            # Check if there is an active ability and if it's interruptable
-            activeability = unit.activeability
-            if activeability and not activeability.interruptible:
-                continue
-            
             # Get the ability
             if self.name not in unit.abilitiesbyname:
                 continue
             abiinfo = unit.abilitiesbyname[self.name]
             
             # Can do?
-            if not abiinfo.CanDoAbility(player, unit):
+            if not self.UnitPassesAbilitySelection(unit, abiinfo):
                 continue
             
             # Prefer units with no active ability
+            activeability = unit.activeability
             try:
                 nabilities = len([o for o in unit.orders if o.ability and not o.ability.autocasted])
             except AttributeError:
@@ -914,10 +935,13 @@ def CreateAbility(abi_info, player, ischeat=False, unittype=None, id=-1, skipche
             PrintWarning("core.abilities.info.CreateAbility: No registered ability named %s\n" % (abi_info) )
             return None
         
+    queueorder = bool(player and (getattr(player, 'buttons', 0) & IN_SPEED))
+
     # Check can do
-    if isserver and not skipcheck and (len(abi_info.GetRequirementsUnits(player)) != 0):
+    requirements = abi_info.GetRequirementsUnits(player) if isserver and not skipcheck else set()
+    if requirements and not (queueorder and abi_info.CanQueueOrderWithRequirements(requirements)):
         if wars_ability_debug.GetBool():
-            DevMsg(1, '%s core.abilities.info.CreateAbility: failed to create ability (requirements not met -> %s)\n' % (isserver, abi_info.GetRequirementsUnits(player)))
+            DevMsg(1, '%s core.abilities.info.CreateAbility: failed to create ability (requirements not met -> %s)\n' % (isserver, requirements))
         if isserver and id != -1:
             recv_filter = CSingleUserRecipientFilter(player)
             recv_filter.MakeReliable()
@@ -1129,4 +1153,3 @@ def ClientAbilityClearMouse(id, **kwargs):
             abi.ClearMouse()
             return
     PrintWarning("Client Message Ability Clear Mouse: invalid ability ID %d\n" %(id))
-        

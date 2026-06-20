@@ -10,7 +10,19 @@ class GroupAttackMove(GroupMoveOrder):
         if ent and (ent.IsUnit() or ent.health > 0):
             target = ent
             
-        unit.AbilityOrder(target=target,
+        if target:
+            order = unit.AbilityOrder(target=target,
+                                      position=target_pos,
+                                      ability=self.ability,
+                                      dispatchevent=False)
+            order.attackmove_target_only = True
+            if unit.curorder == order:
+                unit.DispatchEvent(unit.OnNewOrder, order)
+            else:
+                unit.DispatchEvent(unit.OnOrderQueued, order)
+            return
+
+        unit.AbilityOrder(target=None,
                           position=target_pos,
                           ability=self.ability)
 

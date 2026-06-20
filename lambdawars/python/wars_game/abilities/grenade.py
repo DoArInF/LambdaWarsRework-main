@@ -1,12 +1,35 @@
-from vmath import VectorNormalize, Vector
+from vmath import VectorNormalize, Vector, vec3_angle
 from core.abilities import AbilityTarget, AbilityUpgrade, AbilityUpgradeValue
+from core.abilities.throwobject import IsGroundTargetWithinUnitRadius
 from fields import FloatField, StringField, UpgradeField
-from entities import entity
+from entities import entity, FOWFLAG_HIDDEN, FOWFLAG_NOTRANSMIT
 
 if isserver:
     from entities import CreateEntityByName, DispatchSpawn
     from utils import UTIL_PrecacheOther
     from core.units import BaseBehavior
+
+    def IsGrenadeSelfGroundTarget(abi, unit, targetpos):
+        return abi.throwtarget is None and IsGroundTargetWithinUnitRadius(unit, targetpos)
+
+    def TryDropGrenadeOnSelfGroundTarget(abi, unit, targetpos):
+        if not IsGrenadeSelfGroundTarget(abi, unit, targetpos):
+            return None
+
+        grenade = CreateEntityByName(abi.grenadeclsname)
+        if not grenade:
+            return None
+
+        droppos = Vector(targetpos)
+        droppos.z += 8.0
+        grenade.SetAbsOrigin(droppos)
+        grenade.SetAbsAngles(vec3_angle)
+        grenade.SetOwnerNumber(unit.GetOwnerNumber())
+        grenade.AddFOWFlags(FOWFLAG_HIDDEN | FOWFLAG_NOTRANSMIT)
+        DispatchSpawn(grenade)
+        grenade.SetThrower(unit)
+        grenade.SetOwnerEntity(unit)
+        return grenade
         
 if isserver:
     class ActionThrowGrenade(BaseBehavior.ActionAbility):
@@ -22,8 +45,9 @@ if isserver:
                 dist = outer.EnemyDistance(abi.throwtarget)
             else:
                 dist = (outer.GetAbsOrigin() - abi.throwtargetpos).Length2D()
+            selfgroundtarget = IsGrenadeSelfGroundTarget(abi, outer, abi.throwtargetpos)
             fnloscheck = outer.GrenadeInRangeLOSCheck if hasattr(outer, 'GrenadeInRangeLOSCheck') else None
-            if fnloscheck:
+            if fnloscheck and not selfgroundtarget:
                 if dist > throwrange or not fnloscheck(self.order.position, abi.throwtarget):
                     return self.SuspendFor(self.behavior.ActionMoveInRange, 'Moving into grenade throw range', target, maxrange=throwrange, fncustomloscheck=fnloscheck) 
             else:
@@ -31,7 +55,7 @@ if isserver:
                     return self.SuspendFor(self.behavior.ActionMoveInRange, 'Moving into grenade throw range', target, maxrange=throwrange) 
                     
             # Facing?
-            if not outer.FInAimCone(target, self.facingminimum):
+            if not selfgroundtarget and not outer.FInAimCone(target, self.facingminimum):
                 return self.SuspendFor(self.behavior.ActionFaceTarget, 'Not facing target', target, self.facingminimum)
             if not abi.CanDoAbility(abi.player, self.outer):
                 abi.Cancel()
@@ -73,8 +97,9 @@ if isserver:
                 dist = outer.EnemyDistance(abi.throwtarget)
             else:
                 dist = (outer.GetAbsOrigin() - abi.throwtargetpos).Length2D()
+            selfgroundtarget = IsGrenadeSelfGroundTarget(abi, outer, abi.throwtargetpos)
             fnloscheck = outer.GrenadeInRangeLOSCheck if hasattr(outer, 'GrenadeInRangeLOSCheck') else None
-            if fnloscheck:
+            if fnloscheck and not selfgroundtarget:
                 if dist > throwrange or not fnloscheck(self.order.position, abi.throwtarget):
                     return self.SuspendFor(self.behavior.ActionMoveInRange, 'Moving into grenade throw range', target,
                                            maxrange=throwrange, fncustomloscheck=fnloscheck)
@@ -84,7 +109,7 @@ if isserver:
                                            maxrange=throwrange)
 
                     # Facing?
-            if not outer.FInAimCone(target, self.facingminimum):
+            if not selfgroundtarget and not outer.FInAimCone(target, self.facingminimum):
                 return self.SuspendFor(self.behavior.ActionFaceTarget, 'Not facing target', target, self.facingminimum)
 
             outer.grenadeability = abi

@@ -9,6 +9,7 @@ import ndebugoverlay
 if isserver:
     from animation import Animevent
     from unit_helper import BaseAnimEventHandler, TossGrenadeAnimEventHandler
+    from wars_game.abilities.grenade import TryDropGrenadeOnSelfGroundTarget
 
 @entity('unit_combine', networked=True)
 class UnitCombine(BaseClass):    
@@ -88,7 +89,9 @@ class UnitCombine(BaseClass):
 
                 #UTIL_PredictedPosition(enemy, 0.5, targetpos) 
 
-                grenade = self.TossGrenade(unit, startpos, targetpos, unit.CalculateIgnoreOwnerCollisionGroup())
+                grenade = TryDropGrenadeOnSelfGroundTarget(abi, unit, targetpos)
+                if not grenade:
+                    grenade = self.TossGrenade(unit, startpos, targetpos, unit.CalculateIgnoreOwnerCollisionGroup())
 
                 if grenade:
                     abi.OnGrenadeThrowed(unit, grenade)
