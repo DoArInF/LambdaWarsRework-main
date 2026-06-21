@@ -76,6 +76,9 @@ class UnitBaseCombat(BaseClass):
             self.Suicide()
 
     def UpdateOnRemove(self):
+        if isserver:
+            self.SetThink(None)
+
         # ALWAYS CHAIN BACK!
         super().UpdateOnRemove()
         
@@ -583,6 +586,13 @@ class UnitBaseCombat(BaseClass):
     def UnitThink(self):
         """ Main think loop on server """
         vprofcurrentprofilee.EnterScope("ServerUnits", 0, "ServerUnits", False)
+
+        if not self.senses:
+            if not self.IsMarkedForDeletion():
+                PrintWarning('#%d.%s UnitThink called without senses; stopping think\n' % (self.entindex(), self.GetUnitType()))
+            self.SetThink(None)
+            vprofcurrentprofilee.ExitScope()
+            return
         
         self.UpdateServerAnimation()
         

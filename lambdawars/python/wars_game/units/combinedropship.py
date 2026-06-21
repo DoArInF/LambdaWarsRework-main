@@ -2,24 +2,25 @@ from srcbase import *
 from vmath import *
 from entities import entity
 from .basehelicopter import BaseHelicopter as BaseClass, UnitBaseHelicopterAnimState
-from core.units import UnitInfo, CreateUnitFancy
+from core.units import UnitInfo, CreateUnitFancy, CreateUnit, PlaceUnit
 from playermgr import OWNER_LAST, OWNER_ENEMY
 from gameinterface import CPASAttenuationFilter, CPASFilter
 from utils import UTIL_PlayerByIndex
 from sound import CSoundEnvelopeController
-from entities import CBasePlayer, CreateEntityByName
+from entities import CBasePlayer, CreateEntityByName, D_HT
 from te import te, TE_EXPLFLAG_NOPARTICLES
-from fields import UpgradeField, FloatField
+from fields import UpgradeField, FloatField, ListField
 from gamerules import gamerules
 
 if isserver:
-    from utils import (UTIL_PrecacheOther, UTIL_Remove, UTIL_SetSize, UTIL_ScreenShake, ExplosionCreate, 
-                       SF_ENVEXPLOSION_NODAMAGE, SF_ENVEXPLOSION_NOSPARKS, SF_ENVEXPLOSION_NODLIGHTS, 
+    from utils import (UTIL_PrecacheOther, UTIL_Remove, UTIL_SetSize, UTIL_ScreenShake, ExplosionCreate,
+                       SF_ENVEXPLOSION_NODAMAGE, SF_ENVEXPLOSION_NOSPARKS, SF_ENVEXPLOSION_NODLIGHTS,
                        SF_ENVEXPLOSION_NOSMOKE, SHAKE_START)
     from entities import CTakeDamageInfo, CPhysicsProp, SmokeTrail, CEntityFlame, PropBreakablePrecacheAll
 
 import random
-    
+import math
+
 if isserver:
     @entity('prop_dropship_container')
     class CombineDropshipContainer(CPhysicsProp):
@@ -28,18 +29,18 @@ if isserver:
 
             # Set this here to quiet base prop warnings
             self.SetModel(self.DROPSHIP_CONTAINER_MODEL)
-            
+
             self.indexfireball = self.PrecacheModel('sprites/zerogxplode.vmt')
 
             super().Precache()
-                
+
             for chunkmodelname in self.chunkmodelnames:
                 self.PrecacheModel(chunkmodelname)
             for gibmodelname in self.gibmodelnames:
                 self.PrecacheModel(gibmodelname)
-            
+
             PropBreakablePrecacheAll(self.GetModelName())
-        
+
         def Spawn(self):
             # NOTE: Model must be set before spawn
             self.SetModel(self.DROPSHIP_CONTAINER_MODEL)
@@ -56,13 +57,13 @@ if isserver:
 
             if self.lifetime != 0:
                 self.SetThink(self.Remove, gpGlobals.curtime + self.lifetime, 'SelfDestructThink')
-        
+
         def ShouldTriggerDamageEffect(self, nPrevHealth, nEffectCount):
             ''' Should we trigger a damage effect? '''
             nPrevRange = int( (nPrevHealth / float(self.maxhealth)) * nEffectCount )
             nRange = int( (self.health / float(self.maxhealth)) * nEffectCount )
             return ( nRange != nPrevRange )
-        
+
         def CreateCorpse(self):
             ''' Character killed (only fired once) '''
             self.lifestate = LIFE_DEAD
@@ -74,10 +75,10 @@ if isserver:
             self.CollisionProp().WorldToNormalizedSpace(vecAbsMaxs, vecNormalizedMaxs)
 
             # Explode
-            vecAbsPoint = Vector() 
+            vecAbsPoint = Vector()
             filter = CPASFilter(self.GetAbsOrigin())
             self.CollisionProp().RandomPointInBounds( vecNormalizedMins, vecNormalizedMaxs, vecAbsPoint)
-            te.Explosion( filter, 0.0, vecAbsPoint, self.indexfireball, 
+            te.Explosion( filter, 0.0, vecAbsPoint, self.indexfireball,
                 random.randint( 4, 10 ), random.randint( 8, 15 ), TE_EXPLFLAG_NOPARTICLES, 100, 0 )
 
             # Break into chunks
@@ -122,7 +123,7 @@ if isserver:
             pChunk.SetOwnerEntity( self )
             pChunk.SetCollisionGroup( COLLISION_GROUP_DEBRIS )
             pPhysicsObject = pChunk.VPhysicsInitNormal( SOLID_VPHYSICS, pChunk.GetSolidFlags(), False )
-            
+
             # Set the velocity
             if pPhysicsObject:
                 pPhysicsObject.EnableMotion( True )
@@ -133,7 +134,7 @@ if isserver:
                 angles.y = random.uniform( 0, 360 )
                 angles.z = 0.0
                 AngleVectors( angles, vecVelocity )
-                
+
                 vecVelocity *= random.uniform( 300, 900 )
                 vecVelocity += self.GetAbsVelocity()
 
@@ -190,7 +191,7 @@ if isserver:
                 if (info.GetInflictor() != self.lastinflictor) or (gpGlobals.curtime != self.lasthittime):
                     self.health -= int(self.maxhealth / self.DROPSHIP_CRATE_ROCKET_HITS) + 1
                     self.lastinflictor = info.GetInflictor()
-                    self.lasthittime = gpGlobals.curtime 
+                    self.lasthittime = gpGlobals.curtime
             else:
                 self.health -= int(dmgInfo.GetDamage())
 
@@ -265,12 +266,12 @@ if isserver:
         smoketrailcount = 0
         lastinflictor = None
         lasthittime = 0
-        
+
         DROPSHIP_CONTAINER_MODEL = "models/combine_dropship_container.mdl"
         MAX_SMOKE_TRAILS = 4
         MAX_EXPLOSIONS = 4
         DROPSHIP_CRATE_ROCKET_HITS = 4
-        
+
         chunkmodelnames = [
             "models/gibs/helicopter_brokenpiece_01.mdl",
             "models/gibs/helicopter_brokenpiece_02.mdl",
@@ -283,54 +284,51 @@ if isserver:
 class UnitBaseDropshipAnimState(UnitBaseHelicopterAnimState):
     def __init__(self, outer, *args, **kwargs):
         super().__init__(outer)
-        
+
         self.anggun = QAngle(0,0,0)
-        
+
     def SetActivityMap(self, *args, **kwargs): pass
-    
+
     def OnNewModel(self):
         outer = self.outer
         studiohdr = outer.GetModelPtr()
- 
+
         self.posecargobodyaccel = outer.LookupPoseParameter('cargo_body_accel')
         self.posecargobodysway = outer.LookupPoseParameter('cargo_body_sway')
         self.posebodyaccel = outer.LookupPoseParameter('body_accel')
         self.posebodysway = outer.LookupPoseParameter('body_sway')
-        
+
         outer.SetPoseParameter(self.posecargobodyaccel, 0)
         outer.SetPoseParameter(self.posecargobodysway, 0)
         outer.SetPoseParameter(self.posebodyaccel, 0)
         outer.SetPoseParameter(self.posebodysway, 0)
-        
+
     def Update(self, eyeyaw, eyepitch):
         super().Update(eyeyaw, eyepitch)
-    
+
         outer = self.outer
         enemy = outer.enemy
-        
+
         # GetAnimTimeInterval returns gpGlobals.frametime on client, and interval between main think (non context) on server
         interval = self.GetAnimTimeInterval()
-        
+
         outer.SetSequence(outer.LookupSequence('cargo_idle'))
 
 @entity('unit_combinedropship', networked=True)
-class UnitCombineDropship(BaseClass):    
+class UnitCombineDropship(BaseClass):
     """ Combine Dropship """
     def __init__(self):
         super().__init__()
         self.savedrop = 2048.0
-        if gamerules.info.name == 'overrun':
-            self.maxclimbheight = 8192.0
-        else:
-            self.maxclimbheight = 400.0
+        self.maxclimbheight = 384.0
         self.testroutestartheight = 1024.0
-        
+
     AnimStateClass = UnitBaseDropshipAnimState
-        
+
     if isserver:
         def Precache(self):
             super().Precache()
-            
+
             self.PrecacheScriptSound( "NPC_CombineDropship.RotorLoop" )
             self.PrecacheScriptSound( "NPC_CombineDropship.FireLoop" )
             self.PrecacheScriptSound( "NPC_CombineDropship.NearRotorLoop" )
@@ -338,23 +336,128 @@ class UnitCombineDropship(BaseClass):
             self.PrecacheScriptSound( "NPC_CombineDropship.DescendingWarningLoop" )
             self.PrecacheScriptSound( "NPC_CombineDropship.NearRotorLoop" )
             self.PrecacheScriptSound( "combine_call_dropships" )
-            
+
             UTIL_PrecacheOther("prop_dropship_container")
-            
+        def Event_Killed(self, info):
+            #self.ThrowFlamingGib()
+
+            super().Event_Killed(info)
+            self.SuicideAll()
+            if self.container:
+                UTIL_Remove(self.container)
+                ExplosionCreate(self.WorldSpaceCenter(), self.GetLocalAngles(), self, 200, 150, True )
+        def UpdateOnRemove(self):
+            self.SuicideAll()
+            if self.container:
+                UTIL_Remove(self.container)
+
+            super().UpdateOnRemove()
+    #def CustomCanBeSeen(self, unit=None): # ну я понимаю зачем нуб это сделал но это не совсем баг так-что я уберу это
+        #if unit and not unit.unitinfo.canattack_fly and not self.locomotion.desiredheight <= 40:
+        #    return False
+        #elif self.cloaked:
+        #    if unit:
+        #        if unit.IRelationType(self) == D_HT and unit.detector:
+        #            self.SetThink(self.DetectedEndThink, gpGlobals.curtime + 0.5, 'DetectedEndThink')
+        #            self.detected = True
+        #    return self.detected
+        #return False
+
     def Spawn(self):
         super().Spawn()
 
-        self.locomotion.desiredheight = 600.0
+        self.locomotion.desiredheight = 384.0
+        self.locomotion.maxheight = 384.0
         #self.ammotype = GetAmmoDef().Index("CombineCannon")
         self.SetCollisionGroup(WARS_COLLISION_GROUP_IGNORE_ALL_UNITS)
-        
+
         if isclient:
             self.InitializeRotorSound()
         else:
             self.CreateSoldierCrate()
 
-        if self.lifetime != 0:
+        if self.checkcombinesoldiers_time != 0:
+            self.CreateCombineSoldiers()
+            self.SetThink(self.CheckCombineSoldiers, gpGlobals.curtime + self.checkcombinesoldiers_time, 'SelfCheckCmbThink')
+        elif self.lifetime != 0:
             self.SetThink(self.Remove, gpGlobals.curtime + self.lifetime, 'SelfDestructThink')
+
+    def SuicideAll(self):
+        self.units[:] = [u for u in self.units if bool(u)]
+        for unit in list(self.units):
+            unit.Suicide()
+        if self.redpoint:
+            UTIL_Remove(self.redpoint)
+
+
+    def CreateCombineSoldiers(self):
+        #deploypos = Vector()
+        #deployangle = QAngle()
+        #if self.attachmenttroopdeploy != -1:
+        #    self.container.GetAttachment(self.attachmenttroopdeploy, deploypos, deployangle)
+        #    deployangle.x = deployangle.z = 0
+        #else:
+        #    deploypos = self.GetAbsOrigin()
+        #    deployangle = QAngle(0, self.GetAbsAngles().y, 0)
+        origin = self.GetAbsOrigin()
+        owner = self.GetOwnerNumber()
+        angles = self.GetAbsAngles()
+        for i in range(0, 5):
+            unit = CreateUnit('unit_combine', origin, angles=angles, owner_number=owner) # в целом это можно сделать через активацию жопы но я думаю так будет эффектнее
+
+            unit.uncontrollable = True
+            unit.locomotionfacingonly = True
+            unit.aimoving = True
+            unit.disable_update_active_enemy = True
+            unit.AddSolidFlags(FSOLID_NOT_SOLID)
+            unit.SetCanBeSeen(False)
+            unit.SetUseCustomCanBeSeenCheck(False)
+            unit.ClearAllOrders(notifyclient=False, dispatchevent=False)
+            unit.navigator.StopMoving()
+            unit.senses.Disable()
+            unit.SetParent(self, 0)
+            unit.takedamage = DAMAGE_NO
+
+            self.units.append(unit.GetHandle())
+
+        #for i, unit in enumerate(self.units):
+            angle = (3.14/5.0)*i+ (self.GetAbsAngles().y*3.14/360) -(1.4/5.0)*5.0
+            unit.SetAbsOrigin(self.GetAbsOrigin()+Vector(30*math.cos(angle),30*math.sin(angle), -11))
+            #listunit.SetModelScale(0.01)
+    def DeployCombineSoldiersSmg(self, deploypos):
+        for unit in list(self.units):
+            if not unit or not unit.IsAlive():
+                continue
+            unit.uncontrollable = False
+            unit.locomotionfacingonly = False
+            unit.aimoving = False
+            unit.disable_update_active_enemy = False
+            unit.RemoveSolidFlags(FSOLID_NOT_SOLID)
+            unit.SetCanBeSeen(True)
+            unit.SetUseCustomCanBeSeenCheck(True)
+            unit.SetParent(None, 0)
+            unit.takedamage = DAMAGE_YES
+            unit.senses.Enable()
+            unit.navigator.StopMoving()
+
+            PlaceUnit(unit, deploypos)
+            unit.lastidleposition = unit.GetAbsOrigin()
+            unit.ClearAllOrders(notifyclient=False, dispatchevent=True)
+
+        for unit in list(self.units):
+            self.units.remove(unit.GetHandle())
+        if self.redpoint:
+            UTIL_Remove(self.redpoint)
+        self.iscmbdeployed = True
+        self.SetThink(self.Remove, gpGlobals.curtime + 5, 'SelfDestructThink')
+
+    def CheckCombineSoldiers(self):
+        if not self.iscmbdeployed:
+            self.DeployCombineSoldiersSmg(self.targetdeploypos)
+            #self.Remove()
+            #self.SetThink(self.Remove, gpGlobals.curtime + 3, 'SelfDestructThink')
+        else:
+            self.SetThink(self.Remove, gpGlobals.curtime + 30, 'SelfDestructThink')
 
     def CreateComponents(self):
         super().CreateComponents()
@@ -377,7 +480,7 @@ class UnitCombineDropship(BaseClass):
             if physobj:
                 physobj.SetShadow(1e4, 1e4, False, False)
                 physobj.UpdateShadow(self.container.GetAbsOrigin(), self.container.GetAbsAngles(), False, 0)
-                
+
             self.container.SetMoveType(MOVETYPE_PUSH)
             self.container.SetGroundEntity(None)
 
@@ -388,12 +491,12 @@ class UnitCombineDropship(BaseClass):
             self.machinegunbaseattachment = self.container.LookupAttachment( "gun_base" )
             # NOTE: gun_ref must have the same position as gun_base, but rotates with the gun
             self.machinegunrefattachment = self.container.LookupAttachment( "gun_ref" )
-            
+
     def DropSoldierContainer(self):
         ''' Drop the soldier container '''
         if not self.container:
             return
-            
+
         self.container.SetParent(None, 0)
     #	self.container.SetOwnerEntity(None)
 
@@ -431,7 +534,7 @@ class UnitCombineDropship(BaseClass):
                 print("Dropship died, troops not unloaded: %d\n" % iTroopsNotUnloaded)
 
             m_OnContainerShotDownBeforeDropoff.Set(iTroopsNotUnloaded, self, self)'''
-        
+
     def InitializeRotorSound(self):
         controller = CSoundEnvelopeController.GetController()
 
@@ -451,7 +554,7 @@ class UnitCombineDropship(BaseClass):
 
         if self.rotorongroundsound:
             controller.Play( self.rotorongroundsound, 0.0, 100 )
-        
+
         if self.nearrotorsound:
             controller.Play( self.nearrotorsound, 0.0, 100 )
 
@@ -498,11 +601,11 @@ class UnitCombineDropship(BaseClass):
         controller = CSoundEnvelopeController.GetController()
         flVolDelta = flVolume - controller.SoundGetVolume( pRotorSound )
         if flVolDelta:
-            # We can change from 0 to 1 in 3 seconds. 
+            # We can change from 0 to 1 in 3 seconds.
             # Figure out how many seconds flVolDelta will take.
-            flRampTime = abs( flVolDelta ) * flDeltaTime 
+            flRampTime = abs( flVolDelta ) * flDeltaTime
             controller.SoundChangeVolume( pRotorSound, flVolume, flRampTime )
-        
+
     def UpdateRotorWashVolume(self):
         ''' Updates the rotor wash volume '''
         flNearFactor = 0.0
@@ -517,7 +620,7 @@ class UnitCombineDropship(BaseClass):
 
         if self.nearrotorsound:
             self.UpdateRotorWashVolumeDropship(self.nearrotorsound, self.enginethrust * self.GetRotorVolume() * flNearFactor, 3.0)
-        
+
     def UpdateRotorSoundPitch(self, iPitch):
         controller = CSoundEnvelopeController.GetController()
 
@@ -532,14 +635,14 @@ class UnitCombineDropship(BaseClass):
             controller.SoundChangePitch(self.rotorongroundsound, iPitch + rotorPitch, 0.1)
 
         self.UpdateRotorWashVolume()
-        
+
     def OnChangeOwnerNumber(self, oldownernumber):
         super().OnChangeOwnerNumber(oldownernumber)
-        
+
         if self.container:
             self.container.SetOwnerNumber(self.GetOwnerNumber())
             self.container.SetCollisionGroup(self.GetCollisionGroup())
-            
+
     def DeploySoldiers(self):
         ''' Test method for releasing soldiers. '''
         deploypos = Vector()
@@ -550,62 +653,71 @@ class UnitCombineDropship(BaseClass):
         else:
             deploypos = self.GetAbsOrigin()
             deployangle = QAngle(0, self.GetAbsAngles().y, 0)
-        if self.GetOwnerNumber() == OWNER_ENEMY:
-            if self.t3units:
-                unitlist = ['enemy_unit_combine_sniper', 'unit_combine_elite', 'unit_hunter']
-            elif random.random() < 0.25:
-                unitlist = ['unit_rollermine', 'unit_manhack', 'unit_combine_ar2']
-            else:
-                unitlist = ['unit_combine', 'unit_combine_sg', 'unit_metropolice']
-            for i in range(0, random.randint(1,7)):
-                unit = CreateUnitFancy(random.choice(unitlist), deploypos, angles=deployangle, owner_number=self.GetOwnerNumber(), fnprespawn=self.PreCombineSpawn)
+
+
+        #overrun
+        if gamerules.info.name == 'overrun':
+            if self.GetOwnerNumber() == OWNER_ENEMY:
+                if self.t3units:
+                    unitlist = ['enemy_unit_combine_sniper', 'unit_combine_elite', 'unit_hunter']
+                elif random.random() < 0.25:
+                    unitlist = ['unit_rollermine', 'unit_manhack', 'unit_combine_ar2']
+                else:
+                    unitlist = ['unit_combine', 'unit_combine_sg', 'unit_metropolice']
+                for i in range(0, random.randint(1,7)):
+                    unit = CreateUnitFancy(random.choice(unitlist), deploypos, angles=deployangle, owner_number=self.GetOwnerNumber(), fnprespawn=self.PreCombineSpawn)
                 #if gamerules.info.name == 'overrun':
-        else:
-            if gamerules.info.name == 'overrun':
+            else:
                 for i in range(0, random.randint(2,8)):
                     CreateUnitFancy(random.choice(self.overrun_unitlist), deploypos, angles=deployangle, owner_number=self.GetOwnerNumber())
-            else:
-                for i in range(0, 5):
-                    CreateUnitFancy('unit_combine', deploypos, angles=deployangle, owner_number=self.GetOwnerNumber())
-    
+
+        else:
+            self.DeployCombineSoldiersSmg(deploypos)
+
+
     def PreCombineSpawn(self, unit):
         #if self.GetOwnerNumber() == OWNER_ENEMY:
-        unit.health = int(unit.health * gamerules.healthmodifiers[unit.unitinfo.name]) 
+        unit.health = int(unit.health * gamerules.healthmodifiers[unit.unitinfo.name])
         unit.maxhealth = int(unit.maxhealth * gamerules.healthmodifiers[unit.unitinfo.name])
-        unit.overrunspawned = True 
+        unit.overrunspawned = True
         unit.BehaviorGenericClass = unit.BehaviorOverrunClass
     def Remove(self):
-
+        self.SetThink(None)
+        self.SetNextThink(TICK_NEVER_THINK)
         UTIL_Remove(self)
 
-    overrun_unitlist = ['overrun_unit_manhack', 'overrun_unit_combine', 'overrun_unit_combine_sg', 'overrun_unit_combine_ar2', 
+    overrun_unitlist = ['overrun_unit_manhack', 'overrun_unit_combine', 'overrun_unit_combine_sg', 'overrun_unit_combine_ar2',
                         'overrun_unit_rollermine', 'overrun_unit_combine_heavy', 'overrun_unit_combine_elite', 'overrun_unit_combine_sniper',
                         'overrun_unit_hunter', 'overrun_unit_mortar_synth']
 
     lifetime = FloatField(value=0)
+    checkcombinesoldiers_time = FloatField(value=0)
+    units = ListField(networked=True)
+    redpoint = None
+    iscmbdeployed = False
     enginethrust = 1.0
     summoned = False
-    
+
     cannonsound = None
     rotorongroundsound = None
     descendingwarningsound = None
     nearrotorsound = None
-    
+
     container = None
     lasttrooptoleave = None
     t3units = False
-    
+
     attachmenttroopdeploy = -1
     attachmentdeploystart = -1
     muzzleattachment = -1
     machinegunbaseattachment = -1
     machinegunrefattachment = -1
-    
+
     DROPSHIP_NEAR_SOUND_MIN_DISTANCE = 1000
     DROPSHIP_NEAR_SOUND_MAX_DISTANCE = 2500
     DROPSHIP_GROUND_WASH_MIN_ALTITUDE = 100.0
     DROPSHIP_GROUND_WASH_MAX_ALTITUDE = 750.0
-    
+
     # With crate
     DROPSHIP_BBOX_CRATE_MIN = -Vector(60,60,160)
     DROPSHIP_BBOX_CRATE_MAX = Vector(60,60,0)
@@ -622,7 +734,7 @@ class UnitCombineDropship(BaseClass):
         'ACT_DROPSHIP_FLY_IDLE_CARGO',
         'ACT_DROPSHIP_DESCEND_IDLE',
     ] )
-        
+
 class CombineDropshipInfo(UnitInfo):
     name = 'unit_combinedropship'
     cls_name = 'unit_combinedropship'

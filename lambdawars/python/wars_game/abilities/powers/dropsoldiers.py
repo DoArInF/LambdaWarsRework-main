@@ -80,6 +80,7 @@ class AbilityDropSoldiers(AbilityTarget):
     image_name = "VGUI/combine/abilities/ability_combine_dropship"
     rechargetime = 180.0
     set_initial_recharge = True
+    initial_recharge_time = -1
     population = 15
     techrequirements = ['build_comb_garrison', 'build_comb_armory', 'build_comb_specialops', 'build_comb_mech_factory']
     costs = [('requisition', 250)]
@@ -121,7 +122,8 @@ class AbilityDropSoldiers(AbilityTarget):
                 dropship.exitpos = dropshipexitpos
                 dropship.uncontrollable = True
                 #dropship.summoned = True
-                dropship.lifetime = 50.0
+                #dropship.lifetime = 50.0
+                dropship.checkcombinesoldiers_time = 40.0
                 dropship.BehaviorGenericClass = CreateBehaviorDropshipDrop(dropship.BehaviorGenericClass)
             dropship = CreateUnit('unit_combinedropship', dropshipspawnpos, owner_number=self.ownernumber,
                                   fnprespawn=SetupDropship)
