@@ -428,7 +428,16 @@ class UnitInfo(AbilityTargetGroup, metaclass=UnitInfoMetaClass):
     
     #: Fill color graph generation
     fillcolor = 'white'
-    
+
+    #: True if this unit should be treated as an air target by attack filters.
+    isairunit = False
+    #: False if regular ground melee units cannot physically reach this unit.
+    groundmeleeattackable = True
+    #: False if this unit should ignore targets that require anti-air capable attacks.
+    canattack_fly = True
+    #: True if this unit's melee attack is allowed to acquire air targets.
+    canmeleeairtargets = False
+
     #: Used by fgd generator to auto select properties for an entity used by this unit
     defaultfgd = False
     

@@ -98,6 +98,9 @@ class BehaviorGeneric(BaseBehavior):
                 return self.SuspendFor(self.behavior.ActionOrderMove, 'Move order received', o)
             elif o.type == o.ORDER_ENEMY:
                 if o.target:
+                    if not self.outer.CanAttackOrderTarget(o.target):
+                        o.Remove()
+                        return self.Continue()
                     if not self.outer.attacks:
                         # Change to a generic move order
                         o.type = o.ORDER_MOVE

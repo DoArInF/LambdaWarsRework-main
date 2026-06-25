@@ -187,10 +187,16 @@ class UnitCombineGunship(BaseClass):
     def Spawn(self):
         super().Spawn()
         
+        self.SetUseCustomCanBeSeenCheck(True)
         self.ammotype = GetAmmoDef().Index("CombineCannon")
         
         if isclient:
             self.InitializeRotorSound()
+
+    def CustomCanBeSeen(self, unit=None):
+        if unit and not unit.unitinfo.canattack_fly:
+            return False
+        return super().CustomCanBeSeen(unit)
         
     def UnitThink(self):
         super().UnitThink()
@@ -769,6 +775,8 @@ class UnitCombineGunship(BaseClass):
 class CombineGunshipInfo(UnitInfo):
     name = 'unit_combinegunship'
     cls_name = 'unit_combinegunship'
+    isairunit = True
+    groundmeleeattackable = False
     displayname = '#CombGunship_Name'
     description = '#CombGunship_Description'
     #image_name = 'vgui/combine/units/unit_combinegunship'
@@ -800,4 +808,3 @@ class CombineHelicopterInfo(CombineGunshipInfo):
     modelname = 'models/combine_helicopter.mdl'
     keyvalues = {'spawnflags' : str(UnitCombineGunship.SF_GUNSHIP_USE_CHOPPER_MODEL)}
     scale = 0.75
-    

@@ -247,6 +247,8 @@ class UnitMortarSynth(BaseClass):
 class MortarSynthInfo(UnitInfo):
     name = 'unit_mortar_synth'
     cls_name = 'unit_mortar_synth'
+    isairunit = True
+    groundmeleeattackable = False
     displayname = '#CombMortarSynth_Name'
     description = '#CombMortarSynth_Description'
     image_name = 'vgui/combine/units/unit_mortar_synth'

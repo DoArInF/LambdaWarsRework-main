@@ -45,7 +45,10 @@ class MetroPoliceShield(BaseClassShield):
         def UpdateTeamColor(self):
             owner = self.GetOwnerEntity()
             if owner:
-                self.SetTeamColor(owner.GetTeamColor())
+                if hasattr(owner, 'GetRealTeamColor'):
+                    self.SetTeamColor(owner.GetRealTeamColor())
+                else:
+                    self.SetTeamColor(owner.GetTeamColor())
 
 
 @entity('unit_metropolice', networked=True)
@@ -757,6 +760,7 @@ class MetroPoliceRiotInfo(MetroPoliceInfo):
     }
     useshield = True
     cantakecover = False
+    canattack_fly = False
 
 
 class OverrunMetroPoliceInfo(MetroPoliceInfo):

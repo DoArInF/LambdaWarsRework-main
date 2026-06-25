@@ -57,7 +57,16 @@ class UnitStrider(BaseClass):
             self.SetShadowCastDistance(2048.0) # Use a much higher shadow cast distance
         else:
             self.cannonfx = C_StriderFX()
-            
+
+    def Spawn(self):
+        super().Spawn()
+        self.SetUseCustomCanBeSeenCheck(True)
+
+    def CustomCanBeSeen(self, unit=None):
+        if unit and not unit.unitinfo.canattack_fly:
+            return False
+        return super().CustomCanBeSeen(unit)
+
     # Shared
     if isserver:
         def Precache(self):
@@ -1098,6 +1107,7 @@ class StriderMaxEnergyUpgrade(AbilityUpgradeValue):
 class StriderInfo(UnitInfo):
     name = 'unit_strider'
     cls_name = 'unit_strider'
+    groundmeleeattackable = False
     displayname = '#CombStrider_Name'
     description = '#CombStrider_Description'
     image_name = 'vgui/combine/units/unit_strider'

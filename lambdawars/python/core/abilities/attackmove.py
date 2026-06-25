@@ -11,6 +11,8 @@ class GroupAttackMove(GroupMoveOrder):
             target = ent
             
         if target:
+            if not unit.CanAttackOrderTarget(target):
+                return
             order = unit.AbilityOrder(target=target,
                                       position=target_pos,
                                       ability=self.ability,

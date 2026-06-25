@@ -363,9 +363,15 @@ class UnitCombineDropship(BaseClass):
         #    return self.detected
         #return False
 
+    def CustomCanBeSeen(self, unit=None):
+        if unit and not unit.unitinfo.canattack_fly:
+            return False
+        return super().CustomCanBeSeen(unit)
+
     def Spawn(self):
         super().Spawn()
 
+        self.SetUseCustomCanBeSeenCheck(True)
         self.locomotion.desiredheight = 384.0
         self.locomotion.maxheight = 384.0
         #self.ammotype = GetAmmoDef().Index("CombineCannon")
@@ -738,6 +744,8 @@ class UnitCombineDropship(BaseClass):
 class CombineDropshipInfo(UnitInfo):
     name = 'unit_combinedropship'
     cls_name = 'unit_combinedropship'
+    isairunit = True
+    groundmeleeattackable = False
     displayname = '#CombDropship_Name'
     description = '#CombDropship_Description'
     #image_name = 'vgui/combine/units/unit_combinedropship'

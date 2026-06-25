@@ -645,6 +645,7 @@ class AntlionGuardSharedInfo(UnitInfo):
     cls_name    ='unit_antlionguard'
     maxspeed = 272.0
     attributes = ['heavy']
+    canattack_fly = False
     abilities   = {
         0 : 'charge',
         8 : 'attackmove',

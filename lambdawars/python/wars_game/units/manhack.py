@@ -1125,6 +1125,8 @@ class UnitManhack(BaseClass):
 class ManhackInfo(UnitInfo):
     name = 'unit_manhack'
     cls_name = 'unit_manhack'
+    isairunit = True
+    canmeleeairtargets = True
     #tier = 1
     abilities = {
         8: 'attackmove',

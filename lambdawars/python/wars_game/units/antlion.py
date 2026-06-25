@@ -963,6 +963,7 @@ class AntlionInfoShared(UnitInfo):
     regenerationamount = 1
     regenerationtime = 2
     regeneration = False
+    canattack_fly = False
 
 
     maxspeed = 354.90

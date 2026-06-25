@@ -408,6 +408,7 @@ class DogInfo(UnitInfo):
     techrequirements = ['build_reb_techcenter']
     #tier = 3
     overrunrepair = False
+    canattack_fly = False
     abilities = {
         0: 'slamground',
         1: 'dogjump',

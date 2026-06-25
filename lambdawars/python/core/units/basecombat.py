@@ -399,14 +399,14 @@ class UnitBaseCombat(BaseClass):
             
             # Update glow color if active
             if self.glowidx != None:
-                glowobjectmanager.SetColor(self.glowidx, self.GetTeamColor())
+                glowobjectmanager.SetColor(self.glowidx, self.GetRealTeamColor())
                 
         def OnTeamColorChanged(self):
             super().OnTeamColorChanged()
             
             # Update glow color if active
             if self.glowidx != None:
-                glowobjectmanager.SetColor(self.glowidx, self.GetTeamColor())
+                glowobjectmanager.SetColor(self.glowidx, self.GetRealTeamColor())
                 
     def UpdateSensingDistance(self):
         if not self.senses:
@@ -737,9 +737,41 @@ class UnitBaseCombat(BaseClass):
         if self.activeweapon:
             return self.activeweapon.nextprimaryattack < gpGlobals.curtime and self.HasRangeAttackLOSTarget(target)
         return self.HasRangeAttackLOSTarget(target)
-        
+
     def CanMeleeAttack(self, target):
+        targetinfo = getattr(target, 'unitinfo', None)
+        if targetinfo and not targetinfo.groundmeleeattackable and not self.unitinfo.canmeleeairtargets:
+            return False
         return True
+
+    def CanAttackOrderTarget(self, target):
+        targetinfo = getattr(target, 'unitinfo', None)
+        if not targetinfo or targetinfo.groundmeleeattackable or self.unitinfo.canmeleeairtargets:
+            return True
+        if not self.unitinfo.canattack_fly:
+            return False
+
+        # Ground melee units cannot ever reach this target. Still allow units
+        # with a real non-movement ranged attack to receive the attack order.
+        for attack in self.attacks:
+            if getattr(attack, 'requiresmovement', False):
+                continue
+            if getattr(attack, 'maxrange', 0.0) > 128.0:
+                return True
+        return False
+
+    def SelectBestEnemy(self, senses):
+        origin = self.GetAbsOrigin()
+        bestenemy = None
+        bestdist = None
+        for enemy in senses.GetEnemies():
+            if not self.IsValidEnemy(enemy):
+                continue
+            dist = origin.DistToSqr(enemy.GetAbsOrigin())
+            if bestdist is None or dist < bestdist:
+                bestenemy = enemy
+                bestdist = dist
+        return bestenemy
             
     #
     # User control
@@ -901,7 +933,8 @@ class UnitBaseCombat(BaseClass):
                 # If not, check if the unit is an enemy and attack it. In the other case
                 # perform a move order on the unit (resulting in the unit following the other unit).
                 if ent.IsAlive() and ent.CanBeSeen(self) and self.IRelationType(ent) == D_HT:
-                    self.AttackOrder(ent, selection)
+                    if self.CanAttackOrderTarget(ent):
+                        self.AttackOrder(ent, selection)
                 else:
                     self.MoveOrder(data.groundendpos, angle, selection, target=ent)
         else:
@@ -1040,6 +1073,9 @@ class UnitBaseCombat(BaseClass):
                                This is used for the patrol ability.
             
         """
+        if enemy and not self.CanAttackOrderTarget(enemy):
+            return None
+
         o = OrderAttack(type=Order.ORDER_ENEMY,
                   target=enemy,
                   selection=selection,
@@ -1444,6 +1480,39 @@ class UnitBaseCombat(BaseClass):
     # 
     # Enemy selection
     #
+    def UpdateEnemy(self, senses):
+        """Updates self.enemy using Python attack filters before dispatching OnNewEnemy."""
+        enemylost = self.CheckEnemyLost(True)
+        enemycleared = enemylost and not self.enemy
+        enemy = self.enemy
+
+        if enemy and (not senses.HasEnemy(enemy) or not self.IsValidEnemy(enemy)):
+            enemylost = True
+            enemy = None
+
+        best = self.SelectBestEnemy(senses)
+        if best and enemy:
+            if best == enemy:
+                return
+
+            if enemy.GetAbsOrigin().DistToSqr(best.GetAbsOrigin()) < self.enemychangetolerancesqr:
+                bestprio = self.IRelationPriority(best)
+                curprio = self.IRelationPriority(enemy)
+                if curprio >= bestprio:
+                    return
+
+        if best:
+            self.enemy = best
+            return
+
+        if enemy is None:
+            if enemycleared:
+                self.DispatchEvent('OnEnemyLost')
+            else:
+                self.enemy = None
+        elif enemylost:
+            self.DispatchEvent('OnEnemyLost')
+
     def UpdateActiveEnemy(self):
         """ Updates self.enemy target. Dispatches events when the enemy changes. """
         if self.disable_update_active_enemy:
@@ -1458,7 +1527,8 @@ class UnitBaseCombat(BaseClass):
         return (target and
                 (not require_alive or target.IsAlive()) and
                 (not target.IsUnit() or target.CanBeSeen(self)) and
-                self.IRelationType(target) == D_HT)
+                self.IRelationType(target) == D_HT and
+                self.CanAttackOrderTarget(target))
         
     def OnTakeDamage_Alive(self, info):
         attacker = info.GetAttacker()
@@ -1575,7 +1645,7 @@ class UnitBaseCombat(BaseClass):
                 self.glowidx = None
                 
             if enable:
-                self.glowidx = glowobjectmanager.RegisterGlowObject(self, self.GetTeamColor(), 0.7, True, True, -1)
+                self.glowidx = glowobjectmanager.RegisterGlowObject(self, self.GetRealTeamColor(), 0.7, True, True, -1)
 
         def OnSelected(self, player):
             super().OnSelected(player)

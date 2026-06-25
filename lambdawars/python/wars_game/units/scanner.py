@@ -24,6 +24,11 @@ class UnitBaseScanner(BaseClass):
         self.savedrop = 2048.0
         self.maxclimbheight = 2048.0
         self.testroutestartheight = 2048.0
+
+    def CustomCanBeSeen(self, unit=None):
+        if unit and not unit.unitinfo.canattack_fly:
+            return False
+        return super().CustomCanBeSeen(unit)
         
     def Precache(self):
         super().Precache()
@@ -35,6 +40,7 @@ class UnitBaseScanner(BaseClass):
     def Spawn(self):    
         super().Spawn()
         
+        self.SetUseCustomCanBeSeenCheck(True)
         self.SetBloodColor(DONT_BLEED)
         self.locomotion.desiredheight = 370.0
         self.locomotion.flynoiserate = 32.0
@@ -362,6 +368,8 @@ class ScannerInfo(UnitInfo):
     displayname = '#CombScanner_Name'
     description = '#CombScanner_Description'
     cls_name = 'unit_cscanner'
+    isairunit = True
+    groundmeleeattackable = False
     image_name = 'vgui/combine/units/unit_observer'
     modelname = 'models/combine_scanner.mdl'
     health = 30

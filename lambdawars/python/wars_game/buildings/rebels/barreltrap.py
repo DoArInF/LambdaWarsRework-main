@@ -13,7 +13,7 @@ from fields import FloatField, ListField, IntegerField
 
 if isserver:
     from entities import CreateEntityByName, DispatchSpawn, variant_t, CPhysicsProp, PropBreakablePrecacheAll, CTakeDamageInfo, RadiusDamage, Class_T
-    from core.units import UnitCombatSense, UnitBaseAirLocomotion
+    from core.units import UnitCombatSense
     from utils import UTIL_Remove, ExplosionCreate
     @entity('wars_barrel')
     class Barrel(CPhysicsProp):
@@ -221,8 +221,8 @@ class AbilityReleaseBarrels(AbilityTarget):
             
     @classmethod
     def IsAirTarget(info, target):
-        locomotioncls = getattr(target.__class__, 'LocomotionClass', None)
-        return locomotioncls and issubclass(locomotioncls, UnitBaseAirLocomotion)
+        targetinfo = getattr(target, 'unitinfo', None)
+        return targetinfo and targetinfo.isairunit
 
     @classmethod
     def FindAutoCastTarget(info, unit):

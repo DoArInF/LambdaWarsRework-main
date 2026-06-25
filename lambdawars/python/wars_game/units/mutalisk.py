@@ -42,6 +42,8 @@ class UnitMutalisk(BaseClass):
 class MutaliskInfo(AntlionWorkerInfo):
     name = 'unit_mutalisk'
     cls_name = 'unit_mutalisk'
+    isairunit = True
+    groundmeleeattackable = False
     keyvalues = {'spawnflags' : str(UnitMutalisk.SF_ANTLION_WORKER)}
     abilities = {                        
         8 : 'attackmove',
@@ -56,4 +58,3 @@ class MutaliskInfo(AntlionWorkerInfo):
     displayname = 'Mutalisk'
     description = 'Awesome mutalisk' 
     modelname = 'models/antlion_worker.mdl'
-    

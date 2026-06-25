@@ -704,11 +704,15 @@ class UnitBaseShared(object):
                 
     def OnTeamColorChanged(self):
         if isclient:
-            c = dbplayers[self.GetOwnerNumber()].color if self.overrideteamcolor is None else self.overrideteamcolor
-            self.SetTeamColor(Vector(c.r()/255.0, c.g()/255.0, c.b()/255.0))
+            teamcolor = self.GetRealTeamColor()
+            self.SetTeamColor(teamcolor)
             
             if self.selectionparticle:
-                self.selectionparticle.SetControlPoint(self.selectionparticlecolorcp, self.GetTeamColor())
+                self.selectionparticle.SetControlPoint(self.selectionparticlecolorcp, teamcolor)
+
+    def GetRealTeamColor(self):
+        c = dbplayers[self.GetOwnerNumber()].color if self.overrideteamcolor is None else self.overrideteamcolor
+        return Vector(c.r()/255.0, c.g()/255.0, c.b()/255.0)
 
     def CanPlayerControlUnit(self, player):
         """ Base method for checking if a player can control this unit. """
@@ -818,7 +822,7 @@ class UnitBaseShared(object):
         
     def CreateParticleSelectionEffect(self):
         self.selectionparticle = self.ParticleProp().Create(self.selectionparticlename, PATTACH_ABSORIGIN_FOLLOW)
-        self.selectionparticle.SetControlPoint(self.selectionparticlecolorcp, self.GetTeamColor())
+        self.selectionparticle.SetControlPoint(self.selectionparticlecolorcp, self.GetRealTeamColor())
         radius = self.CollisionProp().BoundingRadius2D()
         self.selectionparticle.SetControlPoint(2, Vector(radius*self.scaleprojectedtexture, radius*self.scaleprojectedtexture, 0))
         
